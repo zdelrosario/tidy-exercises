@@ -1,0 +1,241 @@
+---
+title: "US PhD's Awarded: EDA"
+author: "Zachary del Rosario"
+date: 2019-11-08
+output:
+  github_document
+---
+
+Exploration of "PhD's awarded data" from the NSF. Inspired by Tidytuesday.
+
+Sources:
+
+- Original: [NSF](https://ncses.nsf.gov/pubs/nsf19301/data)
+- Via: [Tidytuesday](https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-02-19)
+
+## Setup
+<!-- -------------------------------------------------- -->
+
+```{r setup}
+library(tidyverse)
+
+phd_field <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-02-19/phd_by_field.csv")
+```
+
+Some overview checks.
+
+```{r overview}
+phd_field %>% glimpse
+
+phd_field %>% summary
+```
+
+What are the major fields coded as?
+
+```{r major_fields}
+phd_field %>%
+  select(broad_field, major_field) %>%
+  unique %>%
+  print(n = 25)
+```
+
+These are not the most informative broad fields. I will do some re-coding, then
+down-select to some broad areas of interest.
+
+```{r fields}
+df_recoded <-
+  phd_field %>%
+  mutate(
+    broad_field = case_when(
+      str_detect(major_field, "Physics") ~ "Physical sciences",
+      str_detect(major_field, "Chemistry") ~ "Physical sciences",
+      str_detect(major_field, "Geosciences") ~ "Physical sciences",
+
+      str_detect(major_field, "Computer") ~ "Computer science",
+      str_detect(major_field, "Mathematics") ~ "Math and Stats",
+      TRUE ~ broad_field
+    )
+  )
+
+broad_fields_selected <-
+  c(
+    "Physical sciences",
+    "Computer science",
+    "Math and Stats",
+    "Engineering"
+  )
+```
+
+
+## Visualizations
+<!-- -------------------------------------------------- -->
+
+How many sub-disciplines (levels of `field`) are in each major field?
+
+```{r count-fields}
+df_recoded %>%
+  select(broad_field, major_field, field) %>%
+  unique %>%
+  count(broad_field, major_field) %>%
+  group_by(broad_field) %>%
+  mutate(n_max = max(n)) %>%
+  ungroup() %>%
+  mutate(broad_field = fct_reorder(broad_field, -n_max)) %>%
+
+  ggplot(aes(fct_reorder(major_field, n), n)) +
+  geom_col() +
+  facet_grid(
+    broad_field~.,
+    scales = "free_y",
+    labeller = labeller(broad_field = label_wrap_gen(width = 10))
+  ) +
+  coord_flip() +
+  theme(strip.text.y = element_text(angle = 0)) +
+  labs(
+    x = "Major Fields",
+    y = "Sub-disciplines"
+  )
+```
+
+Observations:
+
+- The `Life Sciences`; particularly biosciences, have many, many sub-disciplines.
+- Disciplines like `Economics`, `Anthropology`, and `CS` have very few sub-disciplines.
+
+## Timeseries
+<!-- -------------------------------------------------- -->
+
+By broad field, how many PhD's are minted?
+
+```{r summarize-fields}
+df_recoded %>%
+  group_by(broad_field, year) %>%
+  summarize(n_phds = sum(n_phds, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  ggplot(aes(year, n_phds, color = fct_reorder2(broad_field, year, n_phds))) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(from = 2008, to = 2016, by = 2)) +
+  scale_y_log10() +
+  scale_color_discrete(name = "Broad Field") +
+  labs(
+    x = "Year",
+    y = "PhDs"
+  )
+```
+
+Observations:
+
+- I had no idea there were so many PhD's earned in the Social sciences!
+- There was a fairly sharp decline in Education post-Great Recession (2008),
+  which has not recovered.
+- CS, Math and Stats, and (especially) Engineering saw an increase from 2010 to
+  2014, but these seem to have leveled out.
+
+Let's disaggregate by sub-discipline and inspect the timeseries again.
+
+```{r selected-timeseries}
+df_recoded %>%
+  filter(broad_field %in% broad_fields_selected) %>%
+  group_by(field) %>%
+  mutate(delta = lead(n_phds) - n_phds) %>%
+  ungroup() %>%
+  group_by(broad_field, year) %>%
+  mutate(n_phds_total = sum(n_phds, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  ggplot(aes(year, n_phds, group = field)) +
+  geom_line(aes(color = delta > 0), show.legend = FALSE) +
+  geom_line(aes(y = n_phds_total), color = "grey80") +
+  facet_grid(~broad_field) +
+  scale_y_log10() +
+  scale_x_continuous(breaks = c(2008, 2012, 2016)) +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Year",
+    y = "PhDs"
+  )
+```
+
+Observations:
+
+- The number of PhD's awarded in the Computer science(s), Math and Stats, and
+  Engineering are roughly equal. There are many more PhD's awared in the
+  Physical sciences.
+- A certain Engineering sub-discipline seems to have declined and then
+  disappeared in 2014.
+- There was a fairly sharp decline across various Math and Stats sub-disciplines
+  between 2014-16.
+
+Build a helper function to highlight the top and bottom sub-disciplines.
+
+```{r timeseries-helper}
+plot_timeseries <- function(df) {
+  fields_minmax <-
+    df %>%
+    group_by(field) %>%
+    summarize(
+      n_min = min(n_phds, na.rm = TRUE),
+      n_max = max(n_phds, na.rm = TRUE)
+    ) %>%
+    filter((dense_rank(n_min) <= 5) | (dense_rank(-n_max) <= 5)) %>%
+    pull(field)
+
+  df %>%
+  ggplot(aes(year, n_phds)) +
+  geom_line(aes(group = field), color = "grey80") +
+  geom_line(
+    data = . %>% filter(field %in% fields_minmax),
+    aes(color = fct_reorder2(field, year, n_phds))
+  ) +
+  scale_y_log10() +
+  scale_x_continuous(breaks = c(2008, 2012, 2016)) +
+  scale_color_discrete(name = "Field") +
+  guides(color = guide_legend(ncol = 1)) +
+  theme(legend.position = "right") +
+  labs(
+    x = "Year",
+    y = "PhDs"
+  )
+}
+```
+
+```{r cs-timeseries}
+df_recoded %>%
+  filter(broad_field == "Computer science") %>%
+  plot_timeseries
+```
+
+Pure CS degrees seem most common; I'm not sure what the distinction is with
+other degrees.
+
+```{r mathstat-timeseries}
+df_recoded %>%
+  filter(broad_field == "Math and Stats") %>%
+  plot_timeseries
+```
+
+Observations:
+
+- Statistics seems to be the most popular sub-discipline, especially if we
+  consider the `Mathematics and statistics` flavors as the same. Applied math is
+  quite high as well.
+- The "crash" we saw earlier seems to be confined to pure disciplines.
+- There are very few *Mathematics* OR PhD's trained every year!
+
+```{r engr-timeseries}
+df_recoded %>%
+  filter(broad_field == "Engineering") %>%
+  plot_timeseries
+```
+
+Observations:
+
+- There are far more OR PhD's classified in Engineering (rather than
+  Mathematics).
+
+```{r phys-timeseries}
+df_recoded %>%
+  filter(broad_field == "Physical sciences") %>%
+  plot_timeseries
+```
