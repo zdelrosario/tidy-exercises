@@ -1,0 +1,62 @@
+---
+title: "Analyze ED Outcomes Data"
+author: "Zachary del Rosario"
+date: 2019-11-24
+output:
+  github_document
+---
+
+On November 20th, the Department of Education released data on [college student
+outcomes](https://www.insidehighered.com/news/2019/11/21/federal-government-releases-earnings-data-thousands-college-programs),
+for the first time disaggregated by degree program.
+
+
+```{r setup}
+library(tidyverse)
+
+file_data <- "./FieldOfStudyData1516_1617_PP.csv"
+
+df_raw <-
+  file_data %>%
+  read_csv(
+    col_types = cols(
+      UNITID          = col_double(),
+      OPEID6          = col_character(),
+      INSTNM          = col_character(),
+      CONTROL         = col_character(),
+      MAIN            = col_double(),
+      CIPCODE         = col_character(),
+      CIPDESC         = col_character(),
+      CREDLEV         = col_double(),
+      CREDDESC        = col_character(),
+
+      COUNT           = col_double(),
+      DEBTMEDIAN      = col_double(),
+      DEBTPAYMENT10YR = col_double(),
+      DEBTMEAN        = col_double(),
+      TITLEIVCOUNT    = col_double(),
+      EARNINGSCOUNT   = col_double(),
+      MD_EARN_WNE     = col_double(),
+      IPEDSCOUNT1     = col_character(),
+      IPEDSCOUNT2     = col_character()
+    )
+  )
+
+df_data <-
+  df_raw %>%
+  select(
+    uid               = UNITID,
+    institution       = INSTNM,
+    control           = CONTROL,
+    major             = CIPDESC,
+    level             = CREDLEV,
+    degree            = CREDDESC,
+    count             = COUNT,
+    debt_median       = DEBTMEDIAN,
+    debt_payment_10yr = DEBTPAYMENT10YR,
+    debt_mean         = DEBTMEAN,
+    title_iv_count    = TITLEIVCOUNT,
+    earnings_count    = EARNINGSCOUNT,
+    earnings_median   = MD_EARN_WNE
+  )
+```
