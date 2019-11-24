@@ -6,8 +6,9 @@ Zachary del Rosario
 On November 20th, the Department of Education released data on [college
 student
 outcomes](https://www.insidehighered.com/news/2019/11/21/federal-government-releases-earnings-data-thousands-college-programs),
-for the first time disaggregated by degree
-    program.
+for the first time disaggregated by degree program. Here I carry out an
+exploratory analysis on the
+    data.
 
 ``` r
 library(tidyverse)
@@ -95,79 +96,76 @@ df_data <-
   )
 ```
 
-## Some summaries
+## UG Engineering Colleges
 
 <!-- -------------------------------------------------- -->
 
+I have a particular interest in small undergraduate-focused engineering
+colleges. How do they compare?
+
 ``` r
 df_data %>%
-  filter(str_detect(institution, "Olin")) %>%
+  filter(
+    str_detect(institution, "Olin") |
+    str_detect(institution, "Harvey Mudd") |
+    str_detect(institution, "Rose-Hulman")
+  ) %>%
   select(
+    institution,
     major,
+    count,
     debt_median,
     title_iv_count,
     earnings_median,
     earnings_count
   ) %>%
-  knitr::kable()
-```
-
-| major                                                   | debt\_median | title\_iv\_count | earnings\_median | earnings\_count |
-| :------------------------------------------------------ | -----------: | ---------------: | ---------------: | --------------: |
-| Engineering, General.                                   |        15691 |               22 |            77700 |              22 |
-| Electrical, Electronics and Communications Engineering. |        16675 |                0 |               NA |               0 |
-| Mechanical Engineering.                                 |           NA |               23 |            72200 |              21 |
-
-``` r
-df_data %>%
-  filter(str_detect(institution, "Harvey Mudd")) %>%
-  select(
-    major,
-    debt_median,
-    title_iv_count,
-    earnings_median,
-    earnings_count
+  mutate(
+    institution = case_when(
+      str_detect(institution, "Olin") ~ "Olin",
+      str_detect(institution, "Harvey Mudd") ~ "HMC",
+      str_detect(institution, "Rose-Hulman") ~ "RHIT"
+    )
   ) %>%
-  filter(debt_median != 0) %>%
+  filter((debt_median > 0) | (earnings_median > 0)) %>%
+  arrange(desc(earnings_median)) %>%
   knitr::kable()
 ```
 
-| major                             | debt\_median | title\_iv\_count | earnings\_median | earnings\_count |
-| :-------------------------------- | -----------: | ---------------: | ---------------: | --------------: |
-| Computer Science.                 |        24089 |               43 |           124500 |              41 |
-| Engineering, General.             |        22034 |               45 |            77500 |              43 |
-| Mathematics and Computer Science. |        25248 |                0 |               NA |               0 |
-| Physics.                          |        20201 |                0 |               NA |               0 |
+| institution | major                                                   | count | debt\_median | title\_iv\_count | earnings\_median | earnings\_count |
+| :---------- | :------------------------------------------------------ | ----: | -----------: | ---------------: | ---------------: | --------------: |
+| HMC         | Computer Science.                                       |    29 |        24089 |               43 |           124500 |              41 |
+| RHIT        | Computer Science.                                       |    53 |        24979 |               58 |           107800 |              57 |
+| RHIT        | Computer Engineering.                                   |    75 |        26500 |               82 |            84900 |              82 |
+| Olin        | Engineering, General.                                   |    33 |        15691 |               22 |            77700 |              22 |
+| HMC         | Engineering, General.                                   |    67 |        22034 |               45 |            77500 |              43 |
+| RHIT        | Chemical Engineering.                                   |   100 |        27000 |               85 |            75900 |              85 |
+| RHIT        | Electrical, Electronics and Communications Engineering. |    54 |        26932 |               46 |            73500 |              45 |
+| Olin        | Mechanical Engineering.                                 |    13 |           NA |               23 |            72200 |              21 |
+| RHIT        | Mechanical Engineering.                                 |   233 |        26000 |              180 |            68900 |             179 |
+| RHIT        | Civil Engineering.                                      |    54 |        27000 |               44 |            64800 |              43 |
+| RHIT        | Biomedical/Medical Engineering.                         |    49 |        27000 |               33 |            64300 |              32 |
+| HMC         | Mathematics and Computer Science.                       |    22 |        25248 |                0 |               NA |               0 |
+| HMC         | Physics.                                                |    22 |        20201 |                0 |               NA |               0 |
+| Olin        | Electrical, Electronics and Communications Engineering. |    21 |        16675 |                0 |               NA |               0 |
 
-``` r
-df_data %>%
-  filter(str_detect(institution, "Rose-Hulman")) %>%
-  select(
-    major,
-    debt_median,
-    title_iv_count,
-    earnings_median,
-    earnings_count
-  ) %>%
-  filter(debt_median != 0) %>%
-  knitr::kable()
-```
+I know that HMC tends to pride itself on high starting salaries for its
+graduates; it appears that CS drives a lot of that outcome. Olin’s
+general engineering degree includes both CS-focused and other
+self-designed majors, which probably accounts for some of the difference
+with Olin’s ME degree.
 
-| major                                                   | debt\_median | title\_iv\_count | earnings\_median | earnings\_count |
-| :------------------------------------------------------ | -----------: | ---------------: | ---------------: | --------------: |
-| Computer Science.                                       |        24979 |               58 |           107800 |              57 |
-| Biomedical/Medical Engineering.                         |        27000 |               33 |            64300 |              32 |
-| Chemical Engineering.                                   |        27000 |               85 |            75900 |              85 |
-| Civil Engineering.                                      |        27000 |               44 |            64800 |              43 |
-| Computer Engineering.                                   |        26500 |               82 |            84900 |              82 |
-| Electrical, Electronics and Communications Engineering. |        26932 |               46 |            73500 |              45 |
-| Mechanical Engineering.                                 |        26000 |              180 |            68900 |             179 |
+Given the small numbers at HMC and Olin, it appears the ED does not have
+access to data across all majors offered. The ED is probably only able
+to collect data from students that interact with federally-funded
+programs—this is something to keep in mind when studying the rest of the
+data.
 
 ## EDA
 
 <!-- -------------------------------------------------- -->
 
-What majors receive the most Title IV funding?
+What majors tend to receive Title IV funding in greater volume; that is,
+number of Title IV counts (not dollar values)?
 
 ``` r
 df_data %>%
@@ -203,6 +201,9 @@ df_data %>%
 | Business/Commerce, General.                                                        |   65924 |  36.12274 |
 | Marketing.                                                                         |   65793 |  36.57198 |
 | Communication and Media Studies.                                                   |   65664 |  32.00000 |
+
+  - Top Title IV volume goes to Business admin and various health
+    professions
 
 What majors have the greatest debt?
 
@@ -241,7 +242,10 @@ df_data %>%
 | Archeology.                                                 |   120018 |  48080.0 |
 | Alternative and Complementary Medical Support Services.     |    47334 |  47334.0 |
 
-How does debt compare against earnings for different majors?
+Perhaps unsurprisingly, medical doctoral programs result in the greatest
+debt, at least within this dataset.
+
+How does total debt compare against earnings for different majors?
 
 ``` r
 df_major_summaries <-
@@ -311,14 +315,28 @@ df_major_summaries %>%
 
 ![](outcomes_files/figure-gfm/earnings-v-debt-1.png)<!-- -->
 
+I categorize undergraduate degrees based on their location in
+Earning-Debt space: - Efficient majors have high Earnings and low Debt -
+Expensive majors have both high Earnings and high Debt - Poor majors
+have low Earnings but high Debt
+
+Such information could potentially be helpful to students in major
+decisions.
+
 ## Engineering Major Debt and Earnings
 
 <!-- -------------------------------------------------- -->
 
+I have a particular interest in Engineering degrees; how do these
+compare?
+
 ``` r
 df_dollars <-
   df_data %>%
-  filter(str_detect(major, "Engineer")) %>%
+  filter(
+    str_detect(major, "Engineer"),
+    level == 3
+  ) %>%
   ## Dollars
   gather(key = "type", value = "val", earnings_median, debt_annual) %>%
   group_by(major, type) %>%
@@ -368,7 +386,7 @@ left_join(
     color = "black",
     pch = 21
   ) +
-  scale_y_log10(breaks = c(2000, 4000, 40000, 80000)) +
+  scale_y_log10(breaks = c(3000, 4000, 40000, 60000, 80000)) +
   scale_fill_discrete(name = "") +
   scale_size_continuous(name = "Mean Count") +
   coord_flip() +
@@ -383,6 +401,15 @@ left_join(
 ```
 
 ![](outcomes_files/figure-gfm/vis-engr-1.png)<!-- -->
+
+Observations: - Computer Technicians and Electromechnical engineers have
+outlier levels of high debt - There are two clear ‘winner’ degrees in
+terms of Earnings, and a tail of lower-paying Engineering UG majors -
+There is a wide bulk of ‘middle’-paying Engineering majors - Petroleum,
+chemical, and metallurgical-related majors tend to be on the higher-paid
+side - Majors with a ‘technician’ flavor tend to be less well-paid
+
+A focused version of the same plot, but filtering for a minimum count.
 
 ``` r
 left_join(
