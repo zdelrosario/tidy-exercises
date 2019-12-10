@@ -14,8 +14,8 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + Some disciplines have an *astounding* number of sub-disciplines, especially the Life Sciences.
   + As an engineer, I was very surprised to see that the vast majority of PhD's awarded per-year in the US go to Social and Life scientists, with Engineering, CS, and Math/Stats far fewer in number.
 - 2019-11-24: [Dept. of Education Outcomes Data](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-11-22-ed-data/outcomes.md)
-  + *Counts* of Title IV funding tends to go to Business Admin majors, but *dollars* of Title IV funding go (unsurprisingly) to medical professionals.
-  + Most engineering degrees seem to have similar earnings; the outliers are Nuclear and Naval degree holders (who earn more), and Environment-related degree holders (who earn less).
+  + A large *count* of Title IV funding tends to go to Business Admin majors, but more *dollars* of Title IV funding go (unsurprisingly) to medical professionals.
+  + Most engineering degrees seem to have similar earnings; the outliers are Naval/Marine architecture degree holders (who earn more), and Environment-related degree holders (who earn less).
   + Computer Technologies/Technician degrees seem to be a racket; these graduates end up with higher debt, but make a bit less than other degree holders.
 - 2019-12-03: [Philadelphia Parking Violations](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-12-03-phily-tickets/proc.md)
   + In Philadelpha, incidents of parking violations follow a clear weekly trend, with the greatest violations on Thursdays, and far fewer on the weekends.
