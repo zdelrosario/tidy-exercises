@@ -1,0 +1,172 @@
+---
+title: "Data Discrepancies"
+author: "Zach"
+date: 2019-12-10
+output:
+  github_document
+---
+
+This week's
+[tidytuesday](https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-12-10)
+is focused on re-creating plots from the news. However, I was more interested in apparent discrepancies between the datasets:
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+
+murders <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-10/international_murders.csv")
+
+gun_murders <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-10/gun_murders.csv")
+
+diseases <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-10/diseases.csv")
+
+nyc_regents <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-10/nyc_regents.csv")
+```
+
+Let's look at the two death-related datasets:
+
+```{r death-cf}
+murders %>% arrange(desc(count)) %>% head()
+gun_murders %>% arrange(desc(count)) %>% head()
+```
+
+
+Both datasets are given as counts per 100,000 persons. The original sources
+present these values as
+
+## Comparison: UNDOC Data
+<!-- -------------------------------------------------- -->
+
+```{r undoc-import}
+df_raw <- read_excel(
+  "GSH2013_Homicide_count_and_rate.xlsx",
+  sheet = 1,
+  skip = 6,
+  col_names = c(
+    "region",
+    "sub_region",
+    "territory",
+    "source",
+    "org",
+    "indicator",
+    "2000",
+    "2001",
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012"
+  )
+)
+```
+
+```{r undoc-wrangle}
+## Trim head and notes
+df_tmp <-
+  df_raw %>%
+  slice(-1) %>%
+  slice(-(n()-5):-n())
+
+## Detect notes and fill with NA
+df_tmp %>%
+  mutate(region = if_else(str_detect(region, "estimate|data"), NA_character_, region))
+
+## Repeatedly lag-fill until NA's are gone
+countna <- function(df) {
+  df %>%
+    filter_at(vars(region, sub_region, territory, source, org), any_vars(is.na(.))) %>%
+    dim %>%
+    .[[1]]
+}
+
+while (countna(df_tmp) > 0) {
+  df_tmp <-
+    df_tmp %>%
+    mutate_at(vars(region, sub_region, territory, source, org), ~if_else(is.na(.), lag(.), .))
+}
+
+## Cast all the estimates
+df_tmp <-
+  df_tmp %>%
+  mutate_at(
+    vars(`2000`:`2012`),
+    as.numeric
+  )
+
+## Reshape
+df_tmp <-
+  df_tmp %>%
+  pivot_longer(
+    `2000`:`2012`,
+    names_to = "year",
+    values_to = "value",
+    names_ptypes = list(year = integer())
+  ) %>%
+  pivot_wider(
+    names_from = indicator,
+    values_from = "value"
+  ) %>%
+  glimpse
+
+## Final cleaning
+df_undoc <-
+  df_tmp %>%
+  rename_all(str_to_lower)
+
+df_undoc %>%
+  glimpse
+```
+
+Let's check some summaries:
+
+```{r undoc-summary}
+df_undoc %>% pull(region) %>% unique
+df_undoc %>% summary
+```
+
+Sadly, this spreadsheet seems to be about half empty.
+
+```{r undoc-region-timeseries}
+df_undoc %>%
+  ggplot(aes(year, rate)) +
+  geom_smooth(aes(color = fct_reorder2(region, year, rate)), se = FALSE) +
+  ## Tail
+  scale_y_log10() +
+  scale_color_discrete(name = "Region") +
+  theme_minimal()
+```
+
+Observations:
+
+- I'm surprised to see the Americas have the highest homicide rates! I wonder
+  which specific regions are affected?
+- Africa has a fairly unstable homicide rate; it has fluctuated quite a bit in
+  the early part of the millennium.
+
+```{r undoc-sub_region-timeseries}
+df_undoc %>%
+  ggplot(aes(year, rate)) +
+  geom_smooth(aes(color = fct_reorder2(sub_region, year, rate)), se = FALSE) +
+  ## Tail
+  scale_y_log10() +
+  scale_x_continuous(breaks = c(2000, 2003, 2006, 2009, 2012)) +
+  scale_color_discrete(name = "Region") +
+  theme_minimal()
+```
+
+Observations:
+
+- Alarmingly Middle Africa has a sharp uptick in homicidate rate starting around 2010.
+
+```{r }
+df_undoc %>%
+  filter(sub_region == "Northern America") %>%
+  group_by(territory) %>%
+  summarize(rate = mean(rate, na.rm = TRUE))
+```
