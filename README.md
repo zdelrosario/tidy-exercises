@@ -20,3 +20,7 @@ Here's a history of the exercises, along with a brief description of lessons lea
 - 2019-12-03: [Philadelphia Parking Violations](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-12-03-phily-tickets/proc.md)
   + In Philadelpha, incidents of parking violations follow a clear weekly trend, with the greatest violations on Thursdays, and far fewer on the weekends.
   + National holidays lead to far fewer violations as people stay home, but it seems that strong snowstorms have the same effect in this Northeastern city. Having grown up in PA I know what snowstorms are like, but I didn't realize they had a similar effect on traffic violations as national holidays.
+- 2019-12-10: [UNDOC Homicide Data](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-12-10-news-plots/proc.md)
+  + US general homicide rates are much higher than other developed nations; about 3x that of Canada
+  + US gun homicide rates are similarly high; the US *firearm homicide* rate is higher than the *general homicide* rate of many nations of similar wealth
+  + Firearm homicide data are fairly sparse
