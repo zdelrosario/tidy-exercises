@@ -24,3 +24,9 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + US general homicide rates are much higher than other developed nations; about 3x that of Canada
   + US gun homicide rates are similarly high; the US *firearm homicide* rate is higher than the *general homicide* rate of many nations of similar wealth
   + Firearm homicide data are fairly sparse
+- 2019-12-25: [Christmas songs on the Top-100](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-12-24-hot100/proc.md)
+  + Christmas songs on the Top-100 were common from around 1958 through the early 60's. They have become rarer since.
+  + A few Christmas songs have enjoyed "revivals":
+    - Some artists re-chart, such as Nat Kin Cole's "The Christmas Song" charted decades apart (first in 1960, recently in 2017)
+	- Others were re-interpreted, such as "Please Come Home for Christmas" first by Charlie Brown (1961), then by The Eagles (1979)
+  + Christmas songs tend to use words with positive sentiment, and tend to be lyrically simple: If a Christmas song has 100 words in its lyrics, it will tend to repeat the same 18 words
