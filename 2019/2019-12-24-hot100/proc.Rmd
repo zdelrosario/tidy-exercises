@@ -1,0 +1,508 @@
+---
+title: "Christmas Songs on the Hot-100"
+author: "Zach"
+date: 2019-12-25
+output:
+  github_document
+---
+
+Tidy Tuesday 2019-12-24 dataset: Christmas songs on the Top-100 list.
+
+```{r setup}
+library(tidyverse)
+library(tidytext)
+library(lubridate)
+
+df_songs <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-24/christmas_songs.csv") %>%
+  mutate(time = mdy(weekid))
+
+df_lyrics <- readr::read_tsv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-12-24/christmas_lyrics.tsv")
+
+```
+
+## Glimpses
+<!-- -------------------------------------------------- -->
+
+A quick look at the data:
+
+```{r glimpse-songs}
+df_songs %>% glimpse
+```
+
+```{r glimpse-lyrics}
+df_lyrics %>% glimpse
+```
+
+I'm not sure why there are both `title` and `track_title` variables...
+
+```{r lyrics-title}
+df_lyrics %>% pull(title) %>% unique
+```
+
+There are only `6` unique `title` values.
+
+```{r lyrics-track_title}
+df_lyrics %>% pull(track_title) %>% unique
+```
+
+There are `49` unique `track_title` values; this is what I'll use to group the
+song lyrics.
+
+```{r lyrics-len}
+df_lyrics %>%
+  group_by(track_title) %>%
+  summarize(length = max(line)) %>%
+  select(track_title, length)
+```
+
+We don't have lyric data on every song; let's see how many have this info.
+
+```{r lyrics-len-info}
+df_lyrics %>%
+  group_by(track_title) %>%
+  summarize(length = max(line)) %>%
+  select(track_title, length) %>%
+  filter(!is.na(length)) %>%
+  arrange(desc(length))
+```
+
+There are `35` tracks (out of `49`) with lyric data in this set. I'll filter
+down to just those songs for which we have lyrics.
+
+## Timeseries
+<!-- -------------------------------------------------- -->
+
+First, let's try a basic visualization of all the Top-100 Christmas songs:
+
+```{r songs-timeseries-vis}
+df_songs %>%
+  mutate(title = str_to_title(song)) %>%
+
+  ggplot(
+    aes(time, week_position, color = fct_reorder2(title, time, week_position))
+  ) +
+  geom_step(
+    aes(),
+    direction = "hv"
+  ) +
+  geom_point() +
+  ## Tail
+  guides(color = FALSE) +
+  theme_minimal()
+```
+
+From this vis we can tell a few things:
+
+- Christmas songs on the Top-100 are fairly rare; there was a large collection
+  of hits in the 1960's, a short run in the 1970's, and a resurgance only in the
+  past decade.
+- A few songs have enjoyed a "revival", as evidenced by the long horizontal
+  lines connecting the same song charting decades across.
+
+What are these "revived" Christmas songs?
+
+```{r songs-revived}
+df_songs %>%
+  group_by(song) %>%
+  mutate(time_delta = max(time) - min(time)) %>%
+  mutate(
+    case = case_when(
+      percent_rank(time) == 0 ~ "Earliest",
+      percent_rank(time) == 1 ~ "Latest",
+      TRUE ~ NA_character_
+    ),
+    time_perf = str_c(time, " ", performer)
+  ) %>%
+  ungroup() %>%
+  arrange(desc(time_delta)) %>%
+  filter(!is.na(case), time_delta > years(5)) %>%
+  select(song, time_perf, case) %>%
+  pivot_wider(names_from = case, values_from = time_perf)
+```
+
+There are been `7` "revived" Christmas songs, where the earliest to latest
+charting was over 5 years apart. Most of these are attributed to the same
+artist, though a few have been re-interpreted by a different performer. The
+longest span is (shudder) "Jingle Bell Rock", which charted as recently as 2017.
+
+## Process Lyrics
+<!-- -------------------------------------------------- -->
+
+Let's tokenize the lyrics for each song (split into words) and join sentiment
+data for each entry. Since I'm using the `afinn` numeric scale, I zero-fill
+those words without sentiment.
+
+```{r lyrics-tokenize, warning=FALSE}
+df_lyrics_tokens <-
+  df_lyrics %>%
+  select(track_title, line, lyric) %>%
+  filter(!is.na(line)) %>%
+  unnest_tokens(word, lyric) %>%
+  left_join(
+    .,
+    get_sentiments("bing"),
+    by = "word"
+  ) %>%
+  group_by(track_title) %>%
+  mutate(
+    song_n = row_number(),
+    song_p = song_n / max(song_n),
+    sentiment = if_else(is.na(sentiment), "neutral", sentiment),
+    sentiment = fct_relevel(sentiment, "negative", "neutral", "positive"),
+    value = case_when(
+      sentiment == "negative" ~ -1,
+      sentiment == "neutral" ~ 0,
+      sentiment == "positive" ~ +1,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  ungroup()
+
+df_lyrics_tokens %>% glimpse
+```
+
+How many unique words show up in each song?
+
+```{r lyrics-count-unique-words}
+df_unique_words <-
+  df_lyrics_tokens %>%
+  select(track_title, word) %>%
+  unique() %>%
+  count(track_title) %>%
+  arrange(desc(n))
+
+df_unique_words %>% head
+df_unique_words %>% tail
+```
+
+The songs `r df_unique_words %>% head %>% pull(track_title)` have the most
+words, while `r df_unique_words %>% tail %>% pull(track_title)` have the fewest
+words.
+
+Let's count the fraction of unique words in each song. The lower the fraction,
+the more repetitive the lyrics.
+
+```{r lyrics-count-unique-frac}
+df_unique_frac <-
+  df_lyrics_tokens %>%
+  select(track_title, word) %>%
+  group_by(track_title) %>%
+  mutate(n_tot = n()) %>%
+  unique() %>%
+  mutate(
+    n_words = n(),
+    frac = n_words / n_tot
+  ) %>%
+  ungroup() %>%
+  select(track_title, frac) %>%
+  unique() %>%
+  arrange(desc(frac))
+
+df_unique_frac %>% head
+df_unique_frac %>% tail
+```
+
+Observations:
+
+- "The Christmas Song" is the least repetitive song
+- "Jingle Bells" is the most repetitive, followed closely by "Jingle Bell Rock"
+
+```{r lyrics-frac-vis}
+df_unique_frac %>%
+  ggplot(aes(frac)) +
+  geom_histogram(bins = 35) +
+  theme_minimal()
+```
+
+Observations:
+
+- It's not just a feeling: Christmas songs tend to be very repetitive....
+
+```{r lyrics-frac-mean}
+df_unique_frac %>%
+  summarize(frac_mean = mean(frac))
+```
+
+In the songs for which we have data, the lyrics tend to be very repetitive. On
+average, if the lyrics have 100 words, the song itself will tend to repeat the
+same 18 words over and over.
+
+Is there any relation between max Top-100 rank and repetitiveness?
+
+```{r rank-v-frac}
+p <-
+
+  left_join(
+    df_unique_frac %>% mutate(title = str_to_lower(track_title)),
+    df_songs %>% mutate(title = str_to_lower(song)),
+    by = "title"
+  ) %>%
+  select(title, frac, week_position) %>%
+  mutate(week_position = if_else(is.na(week_position), 0, week_position)) %>%
+  group_by(title) %>%
+  filter(min_rank(-week_position) == 1) %>%
+  ungroup() %>%
+  mutate(title = str_to_title(title)) %>%
+
+  ggplot(aes(frac, week_position)) +
+  geom_vline(xintercept = 0, size = 2, color = "grey80") +
+  ggrepel::geom_label_repel(
+    data = . %>% filter(week_position >= 1),
+    aes(label = str_wrap(title, width = 20), fill = title),
+    point.padding = 1,
+    size = 2,
+    hjust = 0,
+    seed = 102
+  ) +
+  geom_point(
+    data = . %>% filter(week_position < 1),
+    color = "grey60",
+    position = position_jitter(width = 0, height = 0.5, seed = 101)
+  ) +
+  geom_point(
+    data = . %>% filter(week_position >= 1),
+    aes(color = title)
+  ) +
+  ## Tail
+  scale_y_continuous(limits = c(0, 110)) +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Unique Word Fraction",
+    y = "Max Top-100 Rank"
+  )
+
+ggExtra::ggMarginal(p, type = "histogram", margins = "x")
+```
+
+There are not many observations where we have both Top-100 rankings and lyrics
+data, so we probably can't draw many conclusions from this. It's interesting to
+note that not many of the high-fraction songs made it into the Top-100, but we
+can't support that conclusion entirely due to the missing data.
+
+## Word Sentiment Analysis
+<!-- -------------------------------------------------- -->
+
+I decided to use this as an excuse to learn how to do simple [sentiment
+analysis](https://www.tidytextmining.com/sentiment.html). For each song, how
+many unique words with non-zero sentiment are there?
+
+```{r lyrics-nz-words}
+df_unique_value_words <-
+  df_lyrics_tokens %>%
+  select(track_title, word, value) %>%
+  unique() %>%
+  filter(value != 0) %>%
+  count(track_title) %>%
+  arrange(desc(n))
+
+df_unique_value_words %>% head
+df_unique_value_words %>% tail
+```
+
+A couple issues with this analysis:
+
+- The sentiment database I use is English only; this won't work well for some
+  of the Spanish songs, e.g.
+
+```{r lyrics-las-posadas}
+df_lyrics_tokens %>% filter(track_title == "Las Posadas")
+```
+
+- This may be a misleading way to judge "degree sentimentality"; this isn't
+  normalizing by the total count of unique words.
+
+Let's instead compute the fraction of unique words which have non-zero
+sentiment:
+
+```{r lyrics-frac-words}
+df_lyrics_frac <-
+  df_lyrics_tokens %>%
+  select(track_title, word, value) %>%
+  unique() %>%
+  group_by(track_title) %>%
+  mutate(
+    nz = (value != 0)
+  ) %>%
+  summarize(
+    n_nz = sum(nz),
+    n_tot = n()
+  ) %>%
+  mutate(frac = n_nz / n_tot) %>%
+  arrange(desc(frac))
+
+df_lyrics_frac %>% head
+df_lyrics_frac %>% tail
+```
+
+Observations:
+
+- We're seeing similar songs at the bottom: `Las Posadas` shows up again, likely
+  due to the language issue.
+- Some classic Christmas songs show up in the high-fraction range.
+
+Let's compute the mean sentiment for each song:
+
+```{r lyrics-mean-sentiment}
+df_stat_sentiment <-
+  df_lyrics_tokens %>%
+  group_by(track_title) %>%
+  summarize(
+    mean_value = mean(value),
+    sd_value = sd(value)
+  )
+
+df_stat_sentiment %>% arrange(desc(mean_value)) %>% head
+df_stat_sentiment %>% arrange(desc(mean_value)) %>% tail
+```
+
+Unsurprisingly, Christmas songs tend to use positive-sentiment words. Even the
+lowest-sentiment Christmas songs (in this dataset) are only marginally negative.
+
+Which songs have the greatest variability in the sentiment of their words?
+
+```{r lyrics-sd-sentiment}
+df_stat_sentiment %>% arrange(desc(sd_value)) %>% head
+df_stat_sentiment %>% arrange(desc(sd_value)) %>% tail
+```
+
+## Sentiment Visualizations
+<!-- -------------------------------------------------- -->
+
+Is there any relation with Hot-100 max-position?
+
+```{r rank-v-sentiment}
+p <-
+
+  left_join(
+    df_stat_sentiment %>% mutate(title = str_to_lower(track_title)),
+    df_songs %>% mutate(title = str_to_lower(song)),
+    by = "title"
+  ) %>%
+  select(title, mean_value, sd_value, weekid, week_position) %>%
+  filter(!str_detect(title, "feliz navidad")) %>%
+  mutate(week_position = if_else(is.na(week_position), 0, week_position)) %>%
+  group_by(title) %>%
+  filter(min_rank(-week_position) == 1) %>%
+  ungroup() %>%
+  mutate(title = str_to_title(title)) %>%
+
+  ggplot(aes(mean_value, week_position)) +
+  geom_vline(xintercept = 0, size = 2, color = "grey80") +
+  ggrepel::geom_label_repel(
+    data = . %>% filter(week_position >= 1),
+    aes(label = str_wrap(title, width = 20), fill = title),
+    point.padding = 1,
+    size = 2,
+    hjust = 0,
+    seed = 102
+  ) +
+  geom_point(
+    data = . %>% filter(week_position < 1),
+    color = "grey60",
+    position = position_jitter(width = 0, height = 0.5, seed = 101)
+  ) +
+  geom_point(
+    data = . %>% filter(week_position >= 1),
+    aes(color = title)
+  ) +
+  ## Tail
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Mean Sentiment",
+    y = "Max Top-100 Rank"
+  )
+
+ggExtra::ggMarginal(p, type = "histogram", margins = "x")
+```
+
+There's no obvious relation between mean sentiment and max Top-100 rank. If
+anything, this shows that the ranking songs tend to be in the middle of the
+distribution of Christmas songs, in terms of mean sentiment. Note however that
+this only considers those songs for which we have lyrics; some of the Top-100
+ranked songs lie outside our lyrics database.
+
+Visualize the timeseries of word sentiments.
+
+```{r lyrics-vis-top}
+vis_value_timeseries <- function(df) {
+  df %>%
+    ggplot(aes(song_p, value)) +
+    geom_line(size = 0.1, color = "grey80") +
+    geom_point(
+      data = . %>% filter(value != 0),
+      aes(color = track_title),
+      size = 0.5
+    ) +
+    geom_point(
+      data = . %>% filter(value == 0),
+      color = "grey80",
+      size = 0.1
+    ) +
+    ## Tail
+    scale_color_discrete(name = "") +
+    scale_x_continuous(labels = scales::label_percent()) +
+    facet_wrap(~track_title) +
+    guides(color = FALSE) +
+    theme_minimal() +
+    theme(legend.position = "bottom") +
+    labs(
+      x = "Song Position",
+      y = "Word Sentiment"
+    )
+}
+```
+
+High-mean lyrics
+
+```{r vis-mean-head}
+sel_track_title <-
+  df_stat_sentiment %>%
+  arrange(desc(mean_value)) %>%
+  head %>%
+  pull(track_title)
+
+df_lyrics_tokens %>%
+  filter(track_title %in% sel_track_title) %>%
+  vis_value_timeseries()
+```
+
+High-variability lyrics
+
+```{r vis-sd-head}
+sel_track_title <-
+  df_stat_sentiment %>%
+  arrange(desc(sd_value)) %>%
+  head %>%
+  pull(track_title)
+
+df_lyrics_tokens %>%
+  filter(track_title %in% sel_track_title) %>%
+  vis_value_timeseries()
+```
+
+Observations:
+
+- The high-variability lyrics are due to liberal use of positive- and
+  negative-sentiment words.
+
+Low-variability lyrics
+
+```{r vis-tail}
+track_title_tail <-
+  df_stat_sentiment %>%
+  arrange(desc(sd_value)) %>%
+  tail %>%
+  pull(track_title)
+
+df_lyrics_tokens %>%
+  filter(track_title %in% track_title_tail) %>%
+  vis_value_timeseries()
+```
+
+Observations:
+
+- The low-variability lyrics are due mostly to songs with neutral charged words.
