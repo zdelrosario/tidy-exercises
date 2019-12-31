@@ -1,0 +1,227 @@
+---
+title: "IMDB Ratings"
+author: "Zach"
+date: 2019-12-31
+output:
+  github_document
+---
+
+Since there's no tidytuesday this week, I went back to the archives and decided
+to try the [IMDB
+dataset](https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-01-08)
+posted earlier this year.
+
+Some setup:
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+
+df_imdb <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-01-08/IMDb_Economist_tv_ratings.csv")
+```
+
+## Simple EDA
+<!-- -------------------------------------------------- -->
+
+```{r }
+df_imdb %>% glimpse
+```
+
+```{r }
+df_imdb %>%
+  arrange(desc(av_rating)) %>%
+  select(av_rating, title, everything()) %>%
+  head
+```
+
+Are shows rated on a per-season basis?
+
+```{r }
+df_imdb %>%
+  filter(title == "Breaking Bad")
+```
+
+Yes, it appears each show is listed with all of its seasons. I'm not sure how to
+read these dates; "Breaking Bad" Season 5
+[half-premiered](https://en.wikipedia.org/wiki/Breaking_Bad#Season_5_(2012%E2%80%9313))
+on 2013-08-11, not 2013-02-20. Given the "Polizeiruf 110" data below, these dates
+must be connected to ratings, and not the airing dates themselves.
+
+Which shows have the most seasons?
+
+```{r }
+df_imdb %>%
+  group_by(titleId) %>%
+  mutate(seasons = max(seasonNumber)) %>%
+  ungroup() %>%
+  filter(seasons == seasonNumber) %>%
+  arrange(desc(seasons)) %>%
+  select(title, seasons, av_rating, date) %>%
+  head(10)
+```
+
+Note that since this is a *ratings* databse, we won't catch shows that haven't
+been rated. That being said [Polizeiruf
+110](https://en.wikipedia.org/wiki/Polizeiruf_110) has been running since 1971,
+first in the German Democratic Republic (East Germany).
+
+Why isn't "The Simpsons" in this database? That's weird.
+
+What's the distribution of seasons among shows?
+
+```{r season-hist}
+df_imdb %>%
+  group_by(titleId) %>%
+  summarize(seasons = max(seasonNumber)) %>%
+  count(seasons)
+```
+
+A very large fraction of shows have just one season; fewer are renewed for a
+second season, and a modest number continue for three or more.
+
+The genres are given as lists; let's split those to make the genre data parsable.
+
+```{r }
+df_genres <-
+  df_imdb %>%
+  mutate(genre = str_split(genres, ",")) %>%
+  unnest(genre)
+
+df_genres %>%
+  count(genre) %>%
+  arrange(desc(n)) %>%
+  knitr::kable()
+```
+
+I have a hunch this distribution is more a data artifact than anything else; I
+feel like I can name more than two Reality-TV shows!
+
+## Visualize
+<!-- -------------------------------------------------- -->
+
+Let's take a rough look at all the data over time:
+
+```{r }
+df_imdb %>%
+
+  ggplot(aes(date, av_rating)) +
+  geom_point(aes(color = titleId), show.legend = FALSE) +
+  geom_line(aes(color = titleId), show.legend = FALSE) +
+  geom_smooth()
+```
+
+I connect shows across seasons, and color by show ID.
+
+Observations:
+
+- There are a lot more shows later in time than earlier. This is probably in large part a data artifact (IMDB was [launched](https://en.wikipedia.org/wiki/IMDb) in 1990), though there very well may be more TV shows today given the rise of streaming platforms.
+- I don't see an especially large trend in average ratings, aside from a bit of a dip in the late 90's.
+
+Do shows tend to trend up, down, or stay the same across seasons?
+
+```{r season-trend}
+df_imdb %>%
+
+  ggplot(aes(seasonNumber, av_rating)) +
+  geom_line(aes(color = titleId), show.legend = FALSE) +
+  geom_smooth() +
+  ## Tail
+  coord_cartesian(xlim = c(0, 20))
+```
+
+Observations:
+
+- Edge-effects on regression mean the downward trend near 20 is unreliable.
+- There seems to be a "bump" in ratings around season 4-6, but...
+- The large number of shows unrenewed for a 2nd season probably skew the trend; let's try again with longer-running shows.
+
+```{r season-trend-filt}
+df_imdb %>%
+  group_by(titleId) %>%
+  filter(max(seasonNumber) > 3) %>%
+  ungroup() %>%
+
+  ggplot(aes(seasonNumber, av_rating)) +
+  geom_line(aes(color = titleId), show.legend = FALSE) +
+  geom_smooth() +
+  ## Tail
+  coord_cartesian(xlim = c(0, 20))
+```
+
+Observations:
+
+- The bump persists even in the filtered data, but I'm worried about edge effects pulling down the early-season part of the trend.
+
+Let's try a boxplot series, which will not make structural assumptions on the data.
+
+```{r season-trend-boxplots}
+df_imdb %>%
+  group_by(titleId) %>%
+  filter(max(seasonNumber) > 3) %>%
+  ungroup() %>%
+  mutate(season = as.factor(seasonNumber)) %>%
+
+  ggplot(aes(season, av_rating)) +
+  geom_boxplot()
+```
+
+The bump does seem to be real!
+
+I've felt for awhile that TV shows "take awhile" to get good; it seems that
+trend is (weakly) reflected in the data!
+
+Is there a difference in first-season ratings between shows that are and are not renewed?
+
+```{r }
+df_imdb %>%
+  group_by(titleId) %>%
+  mutate(renewed = (max(seasonNumber) > 1)) %>%
+  ungroup() %>%
+  filter(seasonNumber == 1) %>%
+
+  ggplot(aes(renewed, av_rating)) +
+  geom_boxplot()
+```
+
+There is a difference in ratings, but it's not huge and there's a fair bit of
+overlap between the two categories.
+
+Are there rating differences across genres?
+
+```{r }
+df_genres %>%
+  group_by(genre) %>%
+  ## filter(n() > 100) %>%
+  mutate(mid_rating = median(av_rating, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  ggplot(aes(fct_reorder(genre, mid_rating), av_rating)) +
+  geom_boxplot() +
+  coord_flip()
+```
+
+The low sample size for Documentary and Reality shows means we can't draw strong
+conclusions for those genres. Otherwise there's not an especially strong trend
+across genres, though Western, Animation, and Sci-Fi tend to be lowest-rated and
+War, Sport, and History highest-rated.
+
+Are there differences in number of seasons across genres?
+
+```{r }
+df_genres %>%
+  group_by(titleId) %>%
+  mutate(seasons = max(seasonNumber)) %>%
+  ungroup() %>%
+  group_by(genre) %>%
+  mutate(mid_season = median(seasons, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  ggplot(aes(fct_reorder(genre, mid_season), seasons)) +
+  geom_boxplot() +
+  coord_flip()
+```
+
+Observations:
+
+- We've already seen that there are very few Musical, Documentary, and Reality shows in the dataset, so those statistics are not generalizable.
+- Certain genres seem to have long-running outlier shows, such as Drama, Crime, and Adventure.
