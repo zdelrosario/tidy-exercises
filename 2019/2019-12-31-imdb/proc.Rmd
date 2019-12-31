@@ -212,16 +212,18 @@ df_genres %>%
   group_by(titleId) %>%
   mutate(seasons = max(seasonNumber)) %>%
   ungroup() %>%
+  filter(seasons == seasonNumber) %>%
   group_by(genre) %>%
   mutate(mid_season = median(seasons, na.rm = TRUE)) %>%
   ungroup() %>%
 
   ggplot(aes(fct_reorder(genre, mid_season), seasons)) +
   geom_boxplot() +
+  scale_y_log10() +
   coord_flip()
 ```
 
 Observations:
 
 - We've already seen that there are very few Musical, Documentary, and Reality shows in the dataset, so those statistics are not generalizable.
-- Certain genres seem to have long-running outlier shows, such as Drama, Crime, and Adventure.
+- Certain genres seem to get renewed at a higher rate! Action, Adventure, Comedy, Crime, Mystery, Romance, and Family seem to be more reliably renewed than other genres.
