@@ -30,3 +30,6 @@ Here's a history of the exercises, along with a brief description of lessons lea
     - Some artists re-chart, such as Nat King Cole's "The Christmas Song" charted decades apart (first in 1960, recently in 2017)
 	- Others were re-interpreted, such as "Please Come Home for Christmas" first by Charlie Brown (1961), then by The Eagles (1979)
   + Christmas songs tend to use words with positive sentiment, and tend to be lyrically simple: If a Christmas song has 100 words in its lyrics, it will tend to repeat the same 18 words
+- 2019-12-31: [IMDB TV Shows](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-12-31-imdb/proc.md)
+  + TV shows need time to "get good" as measured by their average rating score, which tends to peak around season 5.
+  + TV shows also seem to be renewed at different rates across genres. Shows of the Action, Adventure, Comedy, Crime, Mystery, Romance, and Family genre seem to be more reliably renewed than others.
