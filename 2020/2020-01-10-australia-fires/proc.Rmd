@@ -1,0 +1,58 @@
+---
+title: "Australia Fires"
+author: "Zach"
+date:
+output:
+  github_document
+---
+
+Tuesday's exercise is investigating the Australia fires.
+
+```{r}
+library(tidyverse)
+library(sf)
+
+# Get the Data
+
+df_rainfall <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-07/rainfall.csv')
+df_temperature <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-07/temperature.csv')
+
+# IF YOU USE THIS DATA PLEASE BE CAUTIOUS WITH INTERPRETATION
+df_nasa_fire <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-07/MODIS_C6_Australia_and_New_Zealand_7d.csv')
+
+# For JSON File of fires
+url <- "http://www.rfs.nsw.gov.au/feeds/majorIncidents.json"
+
+df_aus_fires <- sf::st_read(url)
+```
+
+Download and unpack Australia boundary data.
+
+```{r}
+url_aus_geo <- "http://data.daff.gov.au/data/warehouse/nsaasr9nnd_022/nsaasr9nnd_02211a04es_geo___.zip"
+curl::curl_download(url_aus_geo, destfile = "../data/aus.shp.zip")
+unzip("../data/aus.shp.zip", exdir = "../data")
+```
+
+Load boundary data.
+
+```{r}
+df_boundaries <- sf::read_sf("../data", "aust_cd66states")
+```
+
+
+
+```{r}
+fires_crs <- st_crs(df_aus_fires)
+
+ggplot() +
+  geom_sf(
+    data = df_boundaries %>%
+      st_set_crs(fires_crs)
+  ) +
+  geom_sf(
+    data = df_aus_fires,
+    mapping = aes(fill = category, color = category)
+  ) +
+  guides(fill = FALSE)
+```
