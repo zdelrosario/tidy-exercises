@@ -1,7 +1,7 @@
 ---
 title: "Australia Fires"
 author: "Zach"
-date:
+date: 2019-01-11
 output:
   github_document
 ---
@@ -9,8 +9,18 @@ output:
 Tuesday's exercise is investigating the Australia fires.
 
 ```{r}
+## For Docker image
+install.packages("gam")
+
+```
+
+
+```{r}
 library(tidyverse)
 library(sf)
+library(lubridate)
+library(gam)
+library(modelr)
 
 # Get the Data
 
@@ -40,7 +50,54 @@ Load boundary data.
 df_boundaries <- sf::read_sf("../data", "aust_cd66states")
 ```
 
+Process the descriptions for `control` information.
 
+```{r}
+df_aus_control <- 
+  df_aus_fires %>% 
+  mutate(
+    control = str_extract(description, "STATUS: [\\w|\\s]+") %>% 
+      str_remove(., "STATUS: ") %>% 
+      str_trim(.) %>% 
+      as_factor(),
+    pubDate = dmy_hms(pubDate)
+  )
+
+df_aus_control %>% glimpse
+```
+
+```{r}
+df_aus_control %>% pull(control) %>% unique
+```
+
+
+
+## Visualize
+<!-- ----------------------------------------------------------------- -->
+
+What is the temperature history for Australia?
+
+```{r}
+df_temperature %>% glimpse
+```
+
+
+```{r}
+df_temperature %>% 
+  mutate(date = ymd(date)) %>% 
+  filter(date > ymd("2018-01-01")) %>%
+
+  ggplot(aes(date, temperature, color = fct_reorder2(site_name, date, temperature))) +
+  geom_point(size = 0.5) +
+  geom_smooth(se = FALSE, size = 1)
+```
+
+```{r}
+df_rainfall %>% glimpse
+```
+
+
+Geographic distribution of fires.
 
 ```{r}
 fires_crs <- st_crs(df_aus_fires)
@@ -51,8 +108,24 @@ ggplot() +
       st_set_crs(fires_crs)
   ) +
   geom_sf(
-    data = df_aus_fires,
-    mapping = aes(fill = category, color = category)
+    data = df_aus_control,
+    mapping = aes(fill = control, color = control)
   ) +
-  guides(fill = FALSE)
+  ## Tail
+  scale_fill_discrete(name = "Fire control status") +
+  coord_sf(
+    xlim = c(+140, +155),
+    ylim = c(-40, -25)
+  ) +
+  guides(color = FALSE) +
+  theme(legend.position = "right")
 ```
+
+Timeseries
+
+```{r}
+df_aus_control %>% 
+  ggplot(aes(pubDate)) +
+  geom_histogram() 
+```
+
