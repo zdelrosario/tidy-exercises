@@ -6,21 +6,12 @@ output:
   github_document
 ---
 
-Tuesday's exercise is investigating the Australia fires.
+Tuesday's exercise is investigating the Australia fires. The code below pulls the most recent fire reports, so the data are up-to-date as of knitting (2019-01-11).
 
-```{r}
-## For Docker image
-install.packages("gam")
-
-```
-
-
-```{r}
+```{r setup}
 library(tidyverse)
 library(sf)
 library(lubridate)
-library(gam)
-library(modelr)
 
 # Get the Data
 
@@ -38,7 +29,7 @@ df_aus_fires <- sf::st_read(url)
 
 Download and unpack Australia boundary data.
 
-```{r}
+```{r download}
 url_aus_geo <- "http://data.daff.gov.au/data/warehouse/nsaasr9nnd_022/nsaasr9nnd_02211a04es_geo___.zip"
 curl::curl_download(url_aus_geo, destfile = "../data/aus.shp.zip")
 unzip("../data/aus.shp.zip", exdir = "../data")
@@ -46,20 +37,20 @@ unzip("../data/aus.shp.zip", exdir = "../data")
 
 Load boundary data.
 
-```{r}
+```{r boundaries}
 df_boundaries <- sf::read_sf("../data", "aust_cd66states")
 ```
 
 Process the descriptions for `control` information.
 
-```{r}
+```{r proc_control}
 df_aus_control <- 
   df_aus_fires %>% 
   mutate(
     control = str_extract(description, "STATUS: [\\w|\\s]+") %>% 
       str_remove(., "STATUS: ") %>% 
       str_trim(.) %>% 
-      as_factor(),
+      ordered(., c("Out of control", "Being controlled", "Under control")),
     pubDate = dmy_hms(pubDate)
   )
 
@@ -70,10 +61,71 @@ df_aus_control %>% glimpse
 df_aus_control %>% pull(control) %>% unique
 ```
 
-
-
 ## Visualize
 <!-- ----------------------------------------------------------------- -->
+
+### GIS
+<!-- --------------------------- -->
+
+Geographic distribution of fires. This will give us valuable context to understand the other data.
+
+```{r gis_vis}
+fires_crs <- st_crs(df_aus_control)
+
+# Lat-lon data for Australian cities
+df_cities_latlon <- tribble(
+       ~lat,     ~lon, ~city,
+  +115.8605, -31.9505, "Perth",
+  +138.6007, -34.9285, "Adelaide",
+  +153.0251, -27.4698, "Brisbane",
+  +151.2093, -33.8688, "Sydney",
+  +149.1300, -35.2809, "Canberra",
+  +144.9631, -37.8136, "Melbourne"
+)
+sf_cities_latlon <- 
+  st_as_sf(
+    df_cities_latlon,
+    coords = c("lat", "lon"),
+    crs = 4326,
+    agr = "constant"
+  )
+
+ggplot() +
+  geom_sf(data = df_boundaries %>% st_set_crs(fires_crs)) +
+  geom_sf(
+    data = df_aus_control,
+    mapping = aes(fill = control, color = control)
+  ) +
+  geom_sf(
+    data = sf_cities_latlon,
+    shape = 21,
+    size = 3,
+    color = "red",
+    fill = "black"
+  ) +
+  geom_text(
+    data = df_cities_latlon,
+    aes(lat, lon, label = city),
+    hjust = 0,
+    nudge_x = +0.5
+  ) +
+  ## Tail
+  scale_fill_discrete(name = "Fire control status") +
+  coord_sf(
+    xlim = c(+142, +155),
+    ylim = c(-38, -27)
+  ) +
+  guides(color = FALSE) +
+  theme(legend.position = "right") +
+  theme_minimal() +
+  labs(x = "", y = "")
+```
+
+The fires are concentrated around Canberra and Sydney. Of course, smoke is probably affecting nearby cities as well.
+The presence of "Out of control" fires near Canberra is cause for major alarm.
+
+### Temperature
+<!-- --------------------------- -->
 
 What is the temperature history for Australia?
 
@@ -82,50 +134,57 @@ df_temperature %>% glimpse
 ```
 
 
-```{r}
+```{r vis-temperature}
 df_temperature %>% 
-  mutate(date = ymd(date)) %>% 
-  filter(date > ymd("2018-01-01")) %>%
+  mutate(
+    date = ymd(date),
+    site_name = str_to_title(site_name)
+  ) %>% 
+  filter(date > ymd("2019-01-01")) %>%
 
   ggplot(aes(date, temperature, color = fct_reorder2(site_name, date, temperature))) +
-  geom_point(size = 0.5) +
-  geom_smooth(se = FALSE, size = 1)
+  geom_point(
+    data = . %>% mutate(flag = str_detect(site_name, "Canberra")),
+    aes(alpha = flag),
+    size = 0.5
+  ) +
+  geom_smooth(se = FALSE, size = 1) +
+  
+  scale_color_discrete(name = "Site") +
+  scale_alpha_manual(values = c(`TRUE` = 1, `FALSE` = 1 / 4)) +
+  guides(alpha = FALSE)
 ```
+
+The temperature near Canberra doesn't seem especially high; if anything, it's been colder than other parts of Australia.
+
+### Rainfall
+<!-- --------------------------- -->
 
 ```{r}
 df_rainfall %>% glimpse
 ```
 
-
-Geographic distribution of fires.
-
-```{r}
-fires_crs <- st_crs(df_aus_fires)
-
-ggplot() +
-  geom_sf(
-    data = df_boundaries %>%
-      st_set_crs(fires_crs)
+```{r vis-rainfall}
+df_rainfall %>% 
+  mutate(
+    date = ymd(str_c(year, month, day))
+  ) %>% 
+  filter(date >= ymd("2019-01-01")) %>% 
+  
+  ggplot(aes(date, rainfall, color = fct_reorder2(city_name, date, rainfall))) +
+  geom_point(
+    data = . %>% mutate(flag = city_name == "Canberra"),
+    aes(alpha = flag)
   ) +
-  geom_sf(
-    data = df_aus_control,
-    mapping = aes(fill = control, color = control)
-  ) +
-  ## Tail
-  scale_fill_discrete(name = "Fire control status") +
-  coord_sf(
-    xlim = c(+140, +155),
-    ylim = c(-40, -25)
-  ) +
-  guides(color = FALSE) +
-  theme(legend.position = "right")
+  geom_smooth(se = FALSE) +
+  
+  scale_y_log10() +
+  scale_color_discrete(name = "City") + 
+  scale_alpha_manual(values = c(`TRUE` = 1, `FALSE` = 1 / 4)) +
+  guides(alpha = FALSE)
+  
 ```
 
-Timeseries
+It seems July was dryer in Canberra than other parts of Australia. Perhaps this helped cause the fires?
 
-```{r}
-df_aus_control %>% 
-  ggplot(aes(pubDate)) +
-  geom_histogram() 
-```
-
+The last few rainfall measurements in Canberra were also fairly low.
