@@ -33,3 +33,7 @@ Here's a history of the exercises, along with a brief description of lessons lea
 - 2019-12-31: [IMDB TV Shows](https://github.com/zdelrosario/tidy-exercises/blob/master/2019/2019-12-31-imdb/proc.md)
   + TV shows need time to "get good" as measured by their average rating score, which tends to peak around season 5.
   + TV shows also seem to be renewed at different rates across genres. Shows of the Action, Adventure, Comedy, Crime, Mystery, Romance, and Family genre seem to be more reliably renewed than others.
+- 2020-01-11: [Australia Fires](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-01-10-australia-fires/proc.md)
+  + The Australia fires are dangerously close to Canberra
+  + The temperature in Canberra seemed to be a bit colder than other Australian cities leading up to the fires.
+  + The rainfall in July was also very low, which probably contributed to blaze.
