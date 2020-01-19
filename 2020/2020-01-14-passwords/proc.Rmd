@@ -1,0 +1,154 @@
+---
+title: "Password Data"
+author: "Zach"
+date: 2020-01-19
+output:
+  github_document
+---
+
+This week's data are [terrible
+passwords](https://github.com/rfordatascience/tidytuesday/tree/master/data/2020/2020-01-14),
+which are all terrible for different reasons. These will be fun!
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+
+# Get the Data
+
+df_pass <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-14/passwords.csv') %>%
+  filter(!is.na(password))
+
+```
+
+## EDA
+<!-- -------------------------------------------------- -->
+
+What are the Top-10 most popular passwords?
+
+```{r head}
+df_pass %>% head(10) %>% knitr::kable()
+```
+
+A lot of these are (sadly) unsurprising, but I'm surprised to see `dragon` on
+here.
+
+Which are the 'best of the worst' passwords?
+
+```{r best-worst}
+df_pass %>%
+  arrange(desc(offline_crack_sec)) %>%
+  head(10) %>%
+  knitr::kable()
+```
+
+These are really funny. :D
+
+How are passwords distributed among the categories?
+
+```{r categories}
+df_pass %>%
+  count(category) %>%
+  arrange(desc(n))
+```
+
+Some of these categories are a bit quizzical; what are "fluffy" passwords?
+
+```{r fluffy}
+df_pass %>%
+  filter(category == "fluffy")
+```
+
+Ah, I see.
+
+What's the distribution of crack-times?
+
+```{r times}
+df_pass %>%
+  ggplot(aes(offline_crack_sec)) +
+  geom_histogram(bins = 5) +
+
+  scale_x_log10(labels = scales::label_number_auto()) +
+  theme_minimal() +
+  labs(
+    x = "Offline Time-to-hack (sec)",
+    y = "Count"
+  )
+```
+
+This seems odd; I wonder what's in that "spike" near 10 milliseconds?
+
+```{r spike-filter}
+df_pass %>%
+  filter(
+    1e-2 / 5 <= offline_crack_sec,
+    offline_crack_sec <= 1e-2
+  )
+```
+
+These passwords seem to be alphabetic and of similar length; let's check the
+distribution of lengths against the distribution of hack-times.
+
+```{r length-v-time}
+df_pass %>%
+  mutate(len = str_length(password)) %>%
+
+  ggplot(aes(len, offline_crack_sec)) +
+  geom_count() +
+
+  scale_y_log10() +
+  theme_minimal()
+```
+
+Yup! We're seeing a lot of passwords of length 6 with similar offline
+hack-times. The bands are very interesting structures; there seem to be some
+features of passwords (of the same length) that raise or lower their crack-time
+by orders of magnitude.
+
+Can we see the aforementioned difference from the given `category` variable?
+
+```{r length-v-time-v-category}
+df_pass %>%
+  mutate(len = str_length(password)) %>%
+
+  ggplot(aes()) +
+  geom_count(
+    aes(len, offline_crack_sec, color = category),
+    position = position_dodge(width = 0.4)
+  ) +
+  geom_line(
+    data = tibble(len = seq(4, 9)) %>%
+      mutate(offline_crack_sec = 1e-10 * 10 ^ len),
+    aes(len, offline_crack_sec),
+    linetype = 2
+  ) +
+
+  scale_y_log10() +
+  scale_color_discrete(name = "Category") +
+  scale_size_continuous(name = "Count") +
+  theme_minimal() +
+  labs(
+    x = "Password Length",
+    y = "Offline Crack-Time (Sec)"
+  )
+```
+
+Observations:
+
+- Generally, password crack-times grow exponentially with password length. This is why general password advice is "longer is better."
+- We can see that the `length==6` spike of `offline_crack_sec ~ 1e-2` can be sub-divided into animal, cool-macho, name, and sport passwords
+- The rate of growth of crack-time seems to be greater for the upper band. I suspect the lower band are ordered sequences, which have much more structure.
+
+Let's test that hypothesis! The manual line I drew above separates the bands,
+so we can use that to filter.
+
+```{r filter-band}
+df_pass %>%
+  mutate(len = str_length(password)) %>%
+  filter(offline_crack_sec <= 1e-10 * 10 ^ len) %>%
+  select(rank, password, category, offline_crack_sec) %>%
+  knitr::kable()
+```
+
+Ah yes, this pattern makes sense. There is one digit string that's not a
+"simple" pattern, but it's definitely in the Zeitgeist.
