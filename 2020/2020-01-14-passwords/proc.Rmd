@@ -136,7 +136,20 @@ df_pass %>%
 Observations:
 
 - Generally, password crack-times grow exponentially with password length. This is why general password advice is "longer is better."
-- We can see that the `length==6` spike of `offline_crack_sec ~ 1e-2` can be sub-divided into animal, cool-macho, name, and sport passwords
+- We can see that the `length==6` spike of `offline_crack_sec ~ 1e-2` can be sub-divided into a large number of categories. Those are:
+
+```{r spike-categories}
+df_pass %>%
+  filter(
+    str_length(password) == 6,
+    1e-3 < offline_crack_sec,
+    offline_crack_sec <= 1e-2
+  ) %>%
+  count(category) %>%
+  arrange(desc(n)) %>%
+  knitr::kable()
+```
+
 - The rate of growth of crack-time seems to be greater for the upper band. I suspect the lower band are ordered sequences, which have much more structure.
 
 Let's test that hypothesis! The manual line I drew above separates the bands,

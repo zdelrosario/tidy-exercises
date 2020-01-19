@@ -5,36 +5,12 @@ Zach
 
 This week’s data are [terrible
 passwords](https://github.com/rfordatascience/tidytuesday/tree/master/data/2020/2020-01-14),
-which are all terrible for different reasons. These will be
-    fun\!
+which are all terrible for different reasons. These will be fun\!
 
 ``` r
 library(tidyverse)
-```
-
-    ## ── Attaching packages ────────────────────────────────── tidyverse 1.2.1 ──
-
-    ## ✔ ggplot2 3.2.1     ✔ purrr   0.3.3
-    ## ✔ tibble  2.1.3     ✔ dplyr   0.8.3
-    ## ✔ tidyr   1.0.0     ✔ stringr 1.4.0
-    ## ✔ readr   1.3.1     ✔ forcats 0.4.0
-
-    ## ── Conflicts ───────────────────────────────────── tidyverse_conflicts() ──
-    ## ✖ dplyr::filter() masks stats::filter()
-    ## ✖ dplyr::lag()    masks stats::lag()
-
-``` r
 library(lubridate)
-```
 
-    ## 
-    ## Attaching package: 'lubridate'
-
-    ## The following object is masked from 'package:base':
-    ## 
-    ##     date
-
-``` r
 # Get the Data
 
 df_pass <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-14/passwords.csv') %>%
@@ -253,8 +229,35 @@ Observations:
   - Generally, password crack-times grow exponentially with password
     length. This is why general password advice is “longer is better.”
   - We can see that the `length==6` spike of `offline_crack_sec ~ 1e-2`
-    can be sub-divided into animal, cool-macho, name, and sport
-    passwords
+    can be sub-divided into a large number of categories. Those are:
+
+<!-- end list -->
+
+``` r
+df_pass %>%
+  filter(
+    str_length(password) == 6,
+    1e-3 < offline_crack_sec,
+    offline_crack_sec <= 1e-2
+  ) %>%
+  count(category) %>%
+  arrange(desc(n)) %>%
+  knitr::kable()
+```
+
+| category            |  n |
+| :------------------ | -: |
+| name                | 95 |
+| cool-macho          | 40 |
+| sport               | 21 |
+| fluffy              | 19 |
+| animal              | 16 |
+| nerdy-pop           | 13 |
+| food                |  9 |
+| rebellious-rude     |  7 |
+| simple-alphanumeric |  7 |
+| password-related    |  5 |
+
   - The rate of growth of crack-time seems to be greater for the upper
     band. I suspect the lower band are ordered sequences, which have
     much more structure.
