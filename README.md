@@ -37,3 +37,7 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + The Australia fires are dangerously close to Canberra
   + The temperature in Canberra seemed to be a bit colder than other Australian cities leading up to the fires.
   + The rainfall in July was also very low, which probably contributed to blaze.
+- 2020-01-19: [Popular passwords](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-01-14-passwords/proc.md)
+  + Some funny popular passwords are `trustno1`, `rush2112`, and `passw0rd`
+  + There is a 'spike' of length-six passwords with small offline time-to-crack. These are fairly diverse in category, though are mostly people's names, cool-macho words, or sport-related.
+  + There is a 'band' of easily-cracked passwords that are simple numerical sequences. These tend to be exceptionally bad passwords, because they have a great deal of structure. Though [Tommy Tutone](https://www.youtube.com/watch?v=6WTdTwcmxyo) also shows up here!
