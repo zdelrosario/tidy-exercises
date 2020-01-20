@@ -1,0 +1,98 @@
+---
+title: "School Shootings"
+author: "Zach"
+date: 2020-01-19
+output:
+  github_document
+---
+
+I found these data by reading Andrew Gelman's
+[blog](https://statmodeling.stat.columbia.edu/2020/01/18/graphs-of-school-shootings-in-the-u-s/),
+but the source is [CNN
+Labs](https://github.com/cnnlabs/cnn-school-shooting-data/).
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+library(ggrepel)
+
+df_data <- readr::read_csv('https://raw.githubusercontent.com/cnnlabs/cnn-school-shooting-data/master/dataset.csv') %>%
+  mutate(date = dmy(date))
+```
+
+## EDA
+<!-- -------------------------------------------------- -->
+
+```{r types}
+df_data %>%
+  count(type) %>%
+  arrange(desc(n))
+```
+
+High school at the top conforms to my expectations, but Elementary school is
+alarming. These are almost surely external perpretrators, while High school
+probably involves more student actors.
+
+```{r victims}
+df_data %>%
+  count(victims) %>%
+  arrange(desc(n)) %>%
+  knitr::kable()
+```
+
+It's cold comfort, but at least the majority of shootings seem to have just one
+victim.
+
+## Timeseries
+<!-- -------------------------------------------------- -->
+
+```{r timeseries}
+df_data %>%
+  ## filter(victims >= 3) %>%
+
+  ggplot(aes(date, victims)) +
+  geom_point(aes(color = type)) +
+  geom_text(
+    data = . %>% filter(victims > 10),
+    aes(label = school),
+    hjust = 1,
+    nudge_y = 0.05
+  ) +
+
+  scale_y_log10() +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+## Times of day
+<!-- -------------------------------------------------- -->
+
+One of the figures Gelman discusses is meant to illustrate that more school
+shootings occur on Friday afternoons. The original figure is hard to interpret.
+Can we do better?
+
+```{r times-v-weekday}
+df_data %>%
+  mutate(day = wday(date, label = TRUE)) %>%
+
+  ggplot(aes(day, time)) +
+  geom_count(pch = 21, color = "grey50", fill = "black") +
+
+  scale_y_reverse(labels = function(time) {
+    str_c(round(time / 3600), ":00")
+  }) +
+  theme_minimal()
+```
+
+There do in fact seem to be more shootings on Friday afternoons. Though Friday
+in general seems to be more common:
+
+```{r weekdays}
+df_data %>%
+  mutate(day = wday(date, label = TRUE)) %>%
+
+  ggplot(aes(day)) +
+  geom_histogram(stat = "count") +
+
+  theme_minimal()
+```
