@@ -1,0 +1,131 @@
+---
+title: "San Francisco Trees"
+author: "Zach"
+date: 2020-01-28
+output:
+  github_document
+---
+
+## Setup
+<!-- ----------------------------------------------------------------------------- -->
+
+```{r setup}
+library(tidyverse)
+library(sf)
+
+df_trees <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-28/sf_trees.csv')
+
+```
+
+```{r}
+sf_trees <- 
+  st_as_sf(
+    df_trees %>% filter(!is.na(latitude), !is.na(longitude)),
+    coords = c("longitude", "latitude"),
+    crs = 4326,
+    agr = "constant"
+  )
+sf_trees %>% glimpse
+```
+
+```{r}
+species_many <- 
+  sf_trees %>% 
+  count(species) %>% 
+  filter(n > 100) %>% 
+  pull(species)
+
+species_few <- 
+  sf_trees %>% 
+  count(species) %>% 
+  filter(n < 100) %>% 
+  pull(species)
+  
+```
+
+
+### Download
+
+```{r get-parcels}
+url_parcels <- "https://data.sfgov.org/api/geospatial/us3s-fp9q?method=export&format=Shapefile"
+curl::curl_download(url_parcels, destfile = "../data/parcels.zip")
+unzip("../data/parcels.zip", exdir = "../data")
+sf_parcels <- read_sf("../data", "geo_export_7202ee25-cc5c-456f-9032-cfdfdbe28874")
+```
+
+```{r get-streets}
+url_streets <- "https://data.sfgov.org/api/geospatial/3psu-pn9h?method=export&format=Shapefile"
+curl::curl_download(url_streets, destfile = "../data/streets.zip")
+unzip("../data/streets.zip", exdir = "../data")
+sf_streets <- read_sf("../data", "geo_export_697866ec-c996-424d-8c73-f0d4b216e58f")
+```
+
+## Vis
+<!-- ----------------------------------------------------------------------------- -->
+
+Let's go looking for *special* trees.
+
+```{r special}
+ggplot() +
+  geom_sf(
+      data = sf_streets %>% 
+        mutate(
+          layer = str_to_lower(layer),
+          highway = str_detect(layer, "freeway")
+        ),
+      mapping = aes(size = highway)
+    ) +
+  geom_sf(
+    data = sf_trees %>% filter(species %in% species_few),
+    mapping = aes(color = species),
+    size = 0.2
+  ) +
+  
+  scale_size_manual(values = c(`TRUE` = 0.1, `FALSE` = 0.05)) +
+  guides(size = FALSE, color = FALSE) +
+  theme_minimal()
+```
+
+Observations:
+
+- I see a few "lines" of special trees of the same species
+
+Let's zoom in to some of these special rows:
+
+```{r}
+bound = st_polygon(
+    list(rbind(
+      c(-122.46, +37.77), 
+      c(-122.46, +37.78), 
+      c(-122.44, +37.78), 
+      c(-122.44, +37.77), 
+      c(-122.46, +37.77)
+    ))
+  )
+
+ggplot() +
+  geom_sf(
+      data = sf_streets %>% 
+        filter(st_within(., bound, sparse = FALSE)) %>% 
+        mutate(
+          layer = str_to_lower(layer),
+          highway = str_detect(layer, "freeway")
+        ),
+      mapping = aes(size = highway)
+    ) +
+  geom_sf(
+    data = sf_trees %>% 
+      filter(
+        st_within(., bound, sparse = FALSE),
+        species %in% species_few
+      ),
+    mapping = aes(color = species),
+    size = 0.2
+  ) +
+  
+  scale_size_manual(values = c(`TRUE` = 0.1, `FALSE` = 0.05)) +
+  guides(size = FALSE, color = FALSE) +
+  theme_minimal()
+
+```
+
