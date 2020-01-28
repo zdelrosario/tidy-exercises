@@ -1,7 +1,7 @@
 ---
 title: "School Shootings"
 author: "Zach"
-date: 2020-01-19
+date: 2020-01-20
 output:
   github_document
 ---
@@ -14,27 +14,67 @@ Labs](https://github.com/cnnlabs/cnn-school-shooting-data/).
 ```{r setup}
 library(tidyverse)
 library(lubridate)
-library(ggrepel)
+library(sf)
 
 df_data <- readr::read_csv('https://raw.githubusercontent.com/cnnlabs/cnn-school-shooting-data/master/dataset.csv') %>%
   mutate(date = dmy(date))
 ```
 
+## GIS Download
+<!-- -------------------------------------------------- -->
+
+```{r}
+url_boundaries <- "https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_20m.zip"
+file_boundaries = "../data/usa_states.zip"
+
+curl::curl_download(url_boundaries, destfile = file_boundaries)
+unzip(file_boundaries, exdir = "../data")
+
+sf_boundaries <- sf::read_sf("../data", "cb_2018_us_state_20m")
+```
+
 ## EDA
 <!-- -------------------------------------------------- -->
+
+What are the types of shootings?
 
 ```{r types}
 df_data %>%
   count(type) %>%
-  arrange(desc(n))
+  arrange(desc(n)) %>% 
+  knitr::kable()
 ```
 
 High school at the top conforms to my expectations, but Elementary school is
 alarming. These are almost surely external perpretrators, while High school
 probably involves more student actors.
 
+Having all these types is accurate, but distracting. Let's aggregate some of the types. I choose to aggregate to the highest grade (e.g. K-12 -> High School). 
+
+```{r aggregate}
+df_agg <- 
+  df_data %>% 
+  mutate(
+    class = case_when(
+      type == "High School" ~ "High School",
+      type == "Elementary School" ~ "Elementary School",
+      type == "Middle School" ~ "Middle School",
+      
+      type == "Grades 7-12" ~ "High School",
+      type == "K-12" ~ "High School",
+      type == "Grades 7-8" ~ "Middle School",
+      type == "K-8" ~ "Middle School",
+      type == "PreK-12" ~ "High School",
+      type == "PreK-8" ~ "Middle School"
+    ),
+    class = fct_relevel(class, "Elementary School", "Middle School", "High School")
+  )
+df_agg %>% glimpse
+```
+
+
 ```{r victims}
-df_data %>%
+df_agg %>%
   count(victims) %>%
   arrange(desc(n)) %>%
   knitr::kable()
@@ -47,11 +87,10 @@ victim.
 <!-- -------------------------------------------------- -->
 
 ```{r timeseries}
-df_data %>%
-  ## filter(victims >= 3) %>%
+df_agg %>%
 
   ggplot(aes(date, victims)) +
-  geom_point(aes(color = type)) +
+  geom_point(aes(color = class)) +
   geom_text(
     data = . %>% filter(victims > 10),
     aes(label = school),
@@ -63,6 +102,23 @@ df_data %>%
   theme_minimal() +
   theme(legend.position = "bottom")
 ```
+
+Observations:
+
+- Many of the "mass" school shootings have occurred in recent times
+- It's hard to see from this vis, but the number of single-victim shootings seems to have increased in recent times as well.
+
+CNN produced a bargraph that illustrates the count of shootings fairly well; let's reproduce that:
+
+```{r }
+df_agg %>% 
+  mutate(year = as.factor(year)) %>% 
+  
+  ggplot(aes(year, fill = class)) +
+  geom_histogram(stat = "count")
+```
+
+This does illustrate the upward trend in shootings. With the previous figure, we can see that in recent times there have been more frequent and more deadly shootings.
 
 ## Times of day
 <!-- -------------------------------------------------- -->
@@ -76,16 +132,26 @@ df_data %>%
   mutate(day = wday(date, label = TRUE)) %>%
 
   ggplot(aes(day, time)) +
-  geom_count(pch = 21, color = "grey50", fill = "black") +
+  geom_point(
+    aes(fill = year),
+    pch = 21, 
+    color = "grey50", 
+    position = position_jitter(width = 0.2, height = 0)
+  ) +
 
+  viridis::scale_fill_viridis() +
   scale_y_reverse(labels = function(time) {
     str_c(round(time / 3600), ":00")
   }) +
   theme_minimal()
 ```
 
-There do in fact seem to be more shootings on Friday afternoons. Though Friday
-in general seems to be more common:
+Observations:
+
+- There does not seem to be a pattern in year and time; the shootings seem to take place in roughly the same times & days over the years
+- As CNN notes, there seem to be more shootings on Friday afternoons. But there are also a fair number on Friday mornings.
+
+Friday in general seems to be more common:
 
 ```{r weekdays}
 df_data %>%
@@ -96,3 +162,49 @@ df_data %>%
 
   theme_minimal()
 ```
+
+Of schooldays, Monday is least common and Friday most common.
+
+## Geospatial
+<!-- -------------------------------------------------- -->
+
+Let's process the geospatial data into simple feature format for plotting.
+
+```{r gis-proc}
+sf_data <- 
+  st_as_sf(
+    df_agg %>% filter(!is.na(LONCOD), !is.na(LATCOD)), 
+    coords = c("LONCOD", "LATCOD"),
+    crs = 4326, 
+    agr = "constant"
+  )
+
+sf_data %>% glimpse
+```
+
+Now let's visualize.
+
+```{r gis-vis}
+sf_data %>% 
+  ggplot() +
+  geom_sf(
+    data = sf_boundaries
+  ) +
+  geom_sf(
+    aes(fill = year),
+    pch = 21,
+    size = 1,
+    color = "black"
+  ) +
+  
+  viridis::scale_fill_viridis() +
+  coord_sf(
+    xlim = c(-130, -60),
+    ylim = c(+25, +50)
+  ) +
+  theme_minimal()
+```
+
+Observations:
+
+- I don't see any clear pattern, other than the intuitive observation that shootings seem to take place in locations of fairly high population density (fewer in the upper-west)
