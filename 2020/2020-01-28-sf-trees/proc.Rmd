@@ -50,14 +50,36 @@ species_few <-
 url_parcels <- "https://data.sfgov.org/api/geospatial/us3s-fp9q?method=export&format=Shapefile"
 curl::curl_download(url_parcels, destfile = "../data/parcels.zip")
 unzip("../data/parcels.zip", exdir = "../data")
-sf_parcels <- read_sf("../data", "geo_export_7202ee25-cc5c-456f-9032-cfdfdbe28874")
+## Record filename
+names_parcels <- unzip("../data/parcels.zip", list = TRUE)
+main_parcels <- 
+  names_parcels %>% 
+  pull(Name) %>% 
+  .[[1]] %>% 
+  str_remove(., "\\.\\w+$")
+
+sf_parcels <- read_sf(
+  "../data", 
+  main_parcels
+)
 ```
 
 ```{r get-streets}
 url_streets <- "https://data.sfgov.org/api/geospatial/3psu-pn9h?method=export&format=Shapefile"
 curl::curl_download(url_streets, destfile = "../data/streets.zip")
 unzip("../data/streets.zip", exdir = "../data")
-sf_streets <- read_sf("../data", "geo_export_697866ec-c996-424d-8c73-f0d4b216e58f")
+## Record filename
+names_streets <- unzip("../data/streets.zip", list = TRUE)
+main_streets <- 
+  names_streets %>% 
+  pull(Name) %>% 
+  .[[1]] %>% 
+  str_remove(., "\\.\\w+$")
+
+sf_streets <- read_sf(
+  "../data", 
+  main_streets
+)
 ```
 
 ## Vis
@@ -95,11 +117,11 @@ Let's zoom in to some of these special rows:
 ```{r}
 bound = st_polygon(
     list(rbind(
-      c(-122.46, +37.77), 
-      c(-122.46, +37.78), 
+      c(-122.45, +37.776), 
+      c(-122.45, +37.78), 
       c(-122.44, +37.78), 
-      c(-122.44, +37.77), 
-      c(-122.46, +37.77)
+      c(-122.44, +37.776), 
+      c(-122.45, +37.776)
     ))
   )
 
