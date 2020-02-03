@@ -82,6 +82,11 @@ sf_streets <- read_sf(
 )
 ```
 
+```{r}
+sf_streets %>% glimpse
+```
+
+
 ## Vis
 <!-- ----------------------------------------------------------------------------- -->
 
@@ -114,27 +119,37 @@ Observations:
 
 Let's zoom in to some of these special rows:
 
-```{r}
+```{r, fig.width=12, fig.height=8}
 bound = st_polygon(
     list(rbind(
-      c(-122.45, +37.776), 
-      c(-122.45, +37.78), 
-      c(-122.44, +37.78), 
-      c(-122.44, +37.776), 
-      c(-122.45, +37.776)
+      c(-122.447, +37.778), 
+      c(-122.447, +37.780), 
+      c(-122.440, +37.780), 
+      c(-122.440, +37.778), 
+      c(-122.447, +37.778)
     ))
   )
 
+sf_streets %>% 
+  filter(
+    st_within(., bound, sparse = FALSE) | 
+    st_intersects(., bound, sparse = FALSE)
+  ) %>% 
+  mutate(
+    layer = str_to_lower(layer),
+    highway = str_detect(layer, "freeway"),
+    center_lon = map_dbl(geometry, ~st_centroid(.)[[1]]),
+    center_lat = map_dbl(geometry, ~st_centroid(.)[[2]])
+  ) %>% 
 ggplot() +
-  geom_sf(
-      data = sf_streets %>% 
-        filter(st_within(., bound, sparse = FALSE)) %>% 
-        mutate(
-          layer = str_to_lower(layer),
-          highway = str_detect(layer, "freeway")
-        ),
-      mapping = aes(size = highway)
-    ) +
+  geom_sf(aes(size = highway)) +
+  geom_label(
+    data = . %>% 
+      group_by(streetname) %>% 
+      filter(min_rank(center_lon) <= 1) %>% 
+      ungroup(),
+    aes(center_lon, center_lat, label = str_to_title(streetname))
+  ) +
   geom_sf(
     data = sf_trees %>% 
       filter(
@@ -142,12 +157,21 @@ ggplot() +
         species %in% species_few
       ),
     mapping = aes(color = species),
-    size = 0.2
+    size = 1.0
   ) +
   
   scale_size_manual(values = c(`TRUE` = 0.1, `FALSE` = 0.05)) +
-  guides(size = FALSE, color = FALSE) +
-  theme_minimal()
+  guides(size = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Longitude",
+    y = "Latitude"
+  )
 
 ```
+
+There's (apparently) a long row of `American Ash` trees on Turk Blvd. near Arbol Lane. This is a strange place for American Ash, whose natural range is the [Eastern US](https://en.wikipedia.org/wiki/Fraxinus_americana).
+
+Based on a [streetview](https://goo.gl/maps/iYQHZJ8zG61HqNoF8), it looks like Arbol Lane is actually a staircase.
 
