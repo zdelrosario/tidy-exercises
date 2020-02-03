@@ -49,3 +49,5 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + Variability among top artists tends to be very little in terms of instrumentalness (there's a lot of singing at the top)
   + Variability among top artists tends to be wide in "valence" (positive sentiment) and the use of acoustic instruments
     - This variability is least among rappers, and greatest among rock artists
+- 2020-01-28: [SF Trees](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-01-28-sf-trees/proc.md)
+  + There's a long row of American Ash trees on Turk Blvd. near Arbol Lane. This is a strange place for American Ash, whose natural range is the [Eastern US](https://en.wikipedia.org/wiki/Fraxinus_americana).
