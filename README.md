@@ -51,3 +51,8 @@ Here's a history of the exercises, along with a brief description of lessons lea
     - This variability is least among rappers, and greatest among rock artists
 - 2020-01-28: [SF Trees](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-01-28-sf-trees/proc.md)
   + There's a long row of American Ash trees on Turk Blvd. near Arbol Lane. This is a strange place for American Ash, whose natural range is the [Eastern US](https://en.wikipedia.org/wiki/Fraxinus_americana).
+- 2020-02-18: [CO2 Food Emissions](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-02-18-food-co2/proc.md)
+  + Lamb, goat, and beef products produce the most CO2 emissions among food products
+  + There's great variety in the rate of production of milk, wheat, and rice among countries of the world
+  + Argentina, Australia, Albania, New Zealand, and Iceland are the top
+    producers of CO2 emissions by food (the US is not far behind)
