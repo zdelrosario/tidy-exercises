@@ -56,3 +56,6 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + There's great variety in the rate of production of milk, wheat, and rice among countries of the world
   + Argentina, Australia, Albania, New Zealand, and Iceland are the top
     producers of CO2 emissions by food (the US is not far behind)
+- 2020-02-25: [Vaccination Rates](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-02-25-vaccines/proc.md)
+  + There is **huge** variation in vaccination rates across schools within the same state; schools in California range between near-zero and near 100% vaccination!
+  + Median MMR and overall vaccination rates tend to be high, though Arkansas lags in MMR and Idaho lags in overall
