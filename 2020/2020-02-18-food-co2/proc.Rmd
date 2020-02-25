@@ -1,0 +1,138 @@
+---
+title: ""
+author: ""
+date:
+output:
+  github_document
+---
+
+```{r setup}
+library(tidyverse)
+
+df_food <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-18/food_consumption.csv')
+```
+
+```{r theme-setup}
+theme_common <- function() {
+  theme_minimal() %+replace%
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(margin = margin(4, 4, 4, 4), size = 16),
+    axis.title.y = element_text(margin = margin(4, 4, 4, 4), size = 16, angle = 90),
+
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 12),
+
+    strip.text.x = element_text(size = 12),
+    strip.text.y = element_text(size = 12),
+
+    panel.grid.major = element_line(color = "grey90"),
+    panel.grid.minor = element_line(color = "grey90"),
+
+    aspect.ratio = 4 / 4,
+
+    plot.margin = unit(c(t = +0, b = +0, r = +0, l = +0), "cm"),
+    plot.title = element_text(size = 18),
+    plot.subtitle = element_text(size = 16),
+    plot.caption = element_text(size = 12)
+  )
+}
+
+```
+
+```{r summary}
+df_food %>% summary
+```
+
+```{r countries}
+df_food %>%
+  pull(country) %>%
+  unique
+```
+
+```{r categories}
+df_food %>%
+  pull(food_category) %>%
+  unique
+```
+
+```{r food-consumption}
+df_food %>%
+  group_by(food_category) %>%
+  mutate(spread = sd(consumption)) %>%
+  ungroup() %>%
+  mutate(food_category = fct_reorder(food_category, spread)) %>%
+
+  ggplot(aes(consumption)) +
+  geom_histogram() +
+  facet_wrap(~food_category)
+```
+
+Observations:
+
+- Consumption of milk and cheese varies widely across countries
+- Consumption of rice and wheat varies a fair bit
+
+```{r emission-v-consumption}
+df_food %>%
+  ggplot(aes(consumption, co2_emmission)) +
+  geom_point(aes(color = food_category))
+```
+
+Observations:
+
+- CO2 emission is linear in consumption; this tells us either that 1. no country
+  is significantly more efficient in their CO2 generation (the values are real),
+  or 2. The emission data are calculated from consumption values (the values are
+  estimated / synthetic)
+
+```{r food-emission}
+df_food %>%
+  mutate(emission = co2_emmission / consumption) %>%
+  group_by(food_category) %>%
+  summarize(emission = mean(emission, na.rm = TRUE)) %>%
+
+  ggplot(aes(fct_reorder(food_category, emission), emission)) +
+  geom_point() +
+  coord_flip()
+```
+
+Observations:
+
+- Lamb, goat, and beef are by far the largest producers of CO2 emissions
+
+```{r country-emission, fig.height=14}
+df_food %>%
+  group_by(country) %>%
+  mutate(co2_total = sum(co2_emmission, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  ggplot(aes(fct_reorder(country, co2_total), co2_emmission)) +
+  geom_bar(
+    aes(fill = food_category),
+    color = "black",
+    stat = "identity"
+  ) +
+
+  scale_fill_discrete(name = "Category") +
+  scale_y_continuous(breaks = c(0, 1000, 2000)) +
+  coord_flip() +
+  theme_common() +
+  theme(
+    axis.text.y = element_text(size = 8, hjust = 1),
+    aspect.ratio = 5 / 1
+  ) +
+  labs(
+    x = "Country",
+    y = "Emission (Kg CO2 / person / yr)"
+  )
+```
+
+Observations:
+
+- The top producers of CO2 are Argentina, Australia, Albania, New Zealand, and
+  Iceland.
+  + There's variety in how these countries produce CO2; Argentina produces
+    emissions through beef production, while Iceland produces primarily through
+    lamb and goat

@@ -1,0 +1,177 @@
+---
+title: "San Francisco Trees"
+author: "Zach"
+date: 2020-01-28
+output:
+  github_document
+---
+
+## Setup
+<!-- ----------------------------------------------------------------------------- -->
+
+```{r setup}
+library(tidyverse)
+library(sf)
+
+df_trees <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-01-28/sf_trees.csv')
+
+```
+
+```{r}
+sf_trees <- 
+  st_as_sf(
+    df_trees %>% filter(!is.na(latitude), !is.na(longitude)),
+    coords = c("longitude", "latitude"),
+    crs = 4326,
+    agr = "constant"
+  )
+sf_trees %>% glimpse
+```
+
+```{r}
+species_many <- 
+  sf_trees %>% 
+  count(species) %>% 
+  filter(n > 100) %>% 
+  pull(species)
+
+species_few <- 
+  sf_trees %>% 
+  count(species) %>% 
+  filter(n < 100) %>% 
+  pull(species)
+  
+```
+
+
+### Download
+
+```{r get-parcels}
+url_parcels <- "https://data.sfgov.org/api/geospatial/us3s-fp9q?method=export&format=Shapefile"
+curl::curl_download(url_parcels, destfile = "../data/parcels.zip")
+unzip("../data/parcels.zip", exdir = "../data")
+## Record filename
+names_parcels <- unzip("../data/parcels.zip", list = TRUE)
+main_parcels <- 
+  names_parcels %>% 
+  pull(Name) %>% 
+  .[[1]] %>% 
+  str_remove(., "\\.\\w+$")
+
+sf_parcels <- read_sf(
+  "../data", 
+  main_parcels
+)
+```
+
+```{r get-streets}
+url_streets <- "https://data.sfgov.org/api/geospatial/3psu-pn9h?method=export&format=Shapefile"
+curl::curl_download(url_streets, destfile = "../data/streets.zip")
+unzip("../data/streets.zip", exdir = "../data")
+## Record filename
+names_streets <- unzip("../data/streets.zip", list = TRUE)
+main_streets <- 
+  names_streets %>% 
+  pull(Name) %>% 
+  .[[1]] %>% 
+  str_remove(., "\\.\\w+$")
+
+sf_streets <- read_sf(
+  "../data", 
+  main_streets
+)
+```
+
+```{r}
+sf_streets %>% glimpse
+```
+
+
+## Vis
+<!-- ----------------------------------------------------------------------------- -->
+
+Let's go looking for *special* trees.
+
+```{r special}
+ggplot() +
+  geom_sf(
+      data = sf_streets %>% 
+        mutate(
+          layer = str_to_lower(layer),
+          highway = str_detect(layer, "freeway")
+        ),
+      mapping = aes(size = highway)
+    ) +
+  geom_sf(
+    data = sf_trees %>% filter(species %in% species_few),
+    mapping = aes(color = species),
+    size = 0.2
+  ) +
+  
+  scale_size_manual(values = c(`TRUE` = 0.1, `FALSE` = 0.05)) +
+  guides(size = FALSE, color = FALSE) +
+  theme_minimal()
+```
+
+Observations:
+
+- I see a few "lines" of special trees of the same species
+
+Let's zoom in to some of these special rows:
+
+```{r, fig.width=12, fig.height=8}
+bound = st_polygon(
+    list(rbind(
+      c(-122.447, +37.778), 
+      c(-122.447, +37.780), 
+      c(-122.440, +37.780), 
+      c(-122.440, +37.778), 
+      c(-122.447, +37.778)
+    ))
+  )
+
+sf_streets %>% 
+  filter(
+    st_within(., bound, sparse = FALSE) | 
+    st_intersects(., bound, sparse = FALSE)
+  ) %>% 
+  mutate(
+    layer = str_to_lower(layer),
+    highway = str_detect(layer, "freeway"),
+    center_lon = map_dbl(geometry, ~st_centroid(.)[[1]]),
+    center_lat = map_dbl(geometry, ~st_centroid(.)[[2]])
+  ) %>% 
+ggplot() +
+  geom_sf(aes(size = highway)) +
+  geom_label(
+    data = . %>% 
+      group_by(streetname) %>% 
+      filter(min_rank(center_lon) <= 1) %>% 
+      ungroup(),
+    aes(center_lon, center_lat, label = str_to_title(streetname))
+  ) +
+  geom_sf(
+    data = sf_trees %>% 
+      filter(
+        st_within(., bound, sparse = FALSE),
+        species %in% species_few
+      ),
+    mapping = aes(color = species),
+    size = 1.0
+  ) +
+  
+  scale_size_manual(values = c(`TRUE` = 0.1, `FALSE` = 0.05)) +
+  guides(size = FALSE) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Longitude",
+    y = "Latitude"
+  )
+
+```
+
+There's (apparently) a long row of `American Ash` trees on Turk Blvd. near Arbol Lane. This is a strange place for American Ash, whose natural range is the [Eastern US](https://en.wikipedia.org/wiki/Fraxinus_americana).
+
+Based on a [streetview](https://goo.gl/maps/iYQHZJ8zG61HqNoF8), it looks like Arbol Lane is actually a staircase.
+
