@@ -1,0 +1,193 @@
+---
+title: "Measles Vaccines"
+author: "Zach"
+date: 2020-02-25
+output:
+  github_document
+---
+
+```{r setup}
+library(tidyverse)
+library(sf)
+
+measles <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-25/measles.csv')
+
+theme_common <- function() {
+  theme_minimal() %+replace%
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(margin = margin(4, 4, 4, 4), size = 16),
+    axis.title.y = element_text(margin = margin(4, 4, 4, 4), size = 16, angle = 90),
+
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 12),
+
+    strip.text.x = element_text(size = 12),
+    strip.text.y = element_text(size = 12),
+
+    panel.grid.major = element_line(color = "grey90"),
+    panel.grid.minor = element_line(color = "grey90"),
+
+    aspect.ratio = 4 / 4,
+
+    plot.margin   = unit(c(t = +0, b = +0, r = +0, l = +0), "cm"),
+    plot.title    = element_text(size = 18, hjust = 0),
+    plot.subtitle = element_text(size = 16),
+    plot.caption  = element_text(size = 14, hjust = 1)
+  )
+}
+```
+
+```{r dl-boundaries}
+url_boundaries <- "https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_20m.zip"
+file_boundaries = "../data/usa_states.zip"
+
+curl::curl_download(url_boundaries, destfile = file_boundaries)
+unzip(file_boundaries, exdir = "../data")
+
+sf_boundaries <- sf::read_sf("../data", "cb_2018_us_state_20m")
+```
+
+### Data dictionary
+
+|variable |class     |description |
+|:--------|:---------|:-----------|
+|index    |double    | Index ID |
+|state    |character | School's state |
+|year     |character | School's district|
+|name     |character | School name|
+|type     |character | Whether a school is public, private, charter |
+|city     |character | City |
+|county   |character | County |
+|district |logical   | School district |
+|enroll   |double    | Enrollment |
+|mmr      |double    | School's Measles, Mumps, and Rubella (MMR) vaccination rate |
+|overall  |double    | School's overall vaccination rate|
+|xrel     |logical   | Percentage of students exempted from vaccination for religious reasons |
+|xmed     |double    | Percentage of students exempted from vaccination for medical reasons |
+|xper     |double    | Percentage of students exempted from vaccination for personal reasons |
+
+```{r summary}
+measles %>% summary
+```
+
+Oddly, only a subset of the states are listed:
+
+```{r }
+measles %>% pull(state) %>% unique
+measles %>% pull(state) %>% unique %>% length
+```
+
+We only have `32` of the states in the dataset.
+
+## Post-processing
+<!-- -------------------------------------------------- -->
+
+There's a bunch of odd stuff in these data; below I document some observations
+and wrap up with some post-processing before analysis.
+
+### Variable `year`
+
+Year is a character, and the data dictionary calls it the "school's district".
+That seems odd...
+
+```{r year-unique}
+measles %>% pull(year) %>% unique
+```
+
+Assume that the `2017` level is the beginning of the academic year; then we can
+pull the first four digits to get the year.
+
+### Missing data coding
+
+It appears that `mmr` and `overall` use the value `-1` to encode missing values.
+However, this will mess with any aggregation we do later. Let's replace
+out-of-bounds values with `NA`.
+
+### Post-processing
+
+Run post-processing to fix the issues found above.
+
+```{r proc}
+df_measles <-
+  measles %>%
+  mutate(
+    ## Variable `year`
+    year = str_extract(year, "^\\d{4}") %>%
+      as.integer,
+    ## Missing data coding
+    mmr = if_else(mmr < 0, NA_real_, mmr),
+    overall = if_else(overall < 0, NA_real_, overall)
+  )
+```
+
+## EDA
+<!-- -------------------------------------------------- -->
+
+```{r }
+df_measles %>%
+  select(state, mmr, overall) %>%
+  pivot_longer(
+    mmr:overall,
+    values_to = "percent",
+    names_to = "type"
+  ) %>%
+  group_by(state, type) %>%
+  mutate(
+    percent_mu = median(percent, na.rm = TRUE),
+    percent_sd = sd(percent, na.rm = TRUE),
+  ) %>%
+  ungroup() %>%
+  mutate(state = fct_reorder(state, percent_mu)) %>%
+
+  ggplot(aes(state, percent, fill = type)) +
+  geom_boxplot(
+    position = position_dodge(width = 1)
+  ) +
+  coord_flip()
+```
+
+Observations:
+-
+
+```{r}
+sf_measles <-
+  st_as_sf(
+    df_measles %>% filter(!is.na(lng), !is.na(lat)),
+    coords = c("lng", "lat"),
+    crs = 4326,
+    agr = "constant"
+  )
+sf_measles %>% glimpse
+```
+
+```{r}
+left_join(
+  sf_boundaries,
+  df_measles %>%
+    group_by(state) %>%
+    summarize(mmr = median(mmr, na.rm = TRUE)),
+  by = c("NAME" = "state")
+) %>%
+  filter(!(NAME %in% c("Alaska", "Hawaii", "Puerto Rico"))) %>%
+
+  ggplot() +
+  geom_sf(aes(fill = mmr)) +
+
+  viridis::scale_fill_viridis(name = "Rate (%)") +
+  guides(
+    fill = guide_colorbar(barwidth = 10)
+  ) +
+  theme_common() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    aspect.ratio = 1 / 2,
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "Statewide Median MMR Vaccination Rate",
+    caption = "Gray state data unavailable"
+  )
+```
