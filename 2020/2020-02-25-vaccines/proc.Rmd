@@ -6,6 +6,8 @@ output:
   github_document
 ---
 
+Today's TidyTuesday is on vaccination rates.
+
 ```{r setup}
 library(tidyverse)
 library(sf)
@@ -39,7 +41,7 @@ theme_common <- function() {
 }
 ```
 
-```{r dl-boundaries}
+```{r dl-boundaries, cache=TRUE}
 url_boundaries <- "https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_20m.zip"
 file_boundaries = "../data/usa_states.zip"
 
@@ -149,7 +151,29 @@ df_measles %>%
 ```
 
 Observations:
--
+- There is extremely large variation in vaccination rates among schools within the same state!
+
+```{r}
+df_measles %>% 
+  group_by(type) %>% 
+  summarize_at(
+    vars(mmr, overall),
+    list(
+      ~median(., na.rm = TRUE), 
+      "lo"=~quantile(., probs = c(0.05), na.rm = TRUE)
+    )
+  ) %>% 
+  arrange(desc(mmr_median)) %>% 
+  knitr::kable()
+```
+
+Observations:
+
+- I had to look up [BOCES](https://en.wikipedia.org/wiki/Boards_of_Cooperative_Educational_Services); it's an organization of school districts in New York state
+- Charter schools seem to do the worst at vaccination, both in median and in low-quantile
+
+## Geospatial vis
+<!-- -------------------------------------------------- -->
 
 ```{r}
 sf_measles <-
@@ -162,11 +186,12 @@ sf_measles <-
 sf_measles %>% glimpse
 ```
 
-```{r}
+```{r state-mmr}
 left_join(
   sf_boundaries,
   df_measles %>%
     group_by(state) %>%
+    filter(min_rank(-year) == 1) %>% 
     summarize(mmr = median(mmr, na.rm = TRUE)),
   by = c("NAME" = "state")
 ) %>%
@@ -177,7 +202,7 @@ left_join(
 
   viridis::scale_fill_viridis(name = "Rate (%)") +
   guides(
-    fill = guide_colorbar(barwidth = 10)
+    fill = guide_colorbar(barwidth = 12)
   ) +
   theme_common() +
   theme(
@@ -190,4 +215,50 @@ left_join(
     title = "Statewide Median MMR Vaccination Rate",
     caption = "Gray state data unavailable"
   )
+
+ggsave("./state-mmr-vaccination.png")
 ```
+
+Observations:
+
+- Among states with available data, Arkansas seems to have done the worst at encouraging MMR vaccination
+- There's a lot of missing data in this set
+
+```{r state-overall}
+left_join(
+  sf_boundaries,
+  df_measles %>%
+    group_by(state) %>%
+    filter(min_rank(-year) == 1) %>% 
+    summarize(overall = median(overall, na.rm = TRUE)),
+  by = c("NAME" = "state")
+) %>%
+  filter(!(NAME %in% c("Alaska", "Hawaii", "Puerto Rico"))) %>%
+
+  ggplot() +
+  geom_sf(aes(fill = overall)) +
+
+  viridis::scale_fill_viridis(name = "Rate (%)", breaks = c(87, 90, 95, 100)) +
+  guides(
+    fill = guide_colorbar(barwidth = 12)
+  ) +
+  theme_common() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    aspect.ratio = 1 / 2,
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "Statewide Median Overall Vaccination Rate",
+    caption = "Gray state data unavailable"
+  )
+
+ggsave("./state-overall-vaccination.png")
+```
+
+Observations:
+
+- Among states with overall vaccination rate data, Idahoe does the worst
+- There is more missing data for `overall`, as compared with `mmr` rates
+  - Furthermore the pattern of missing data is different; maybe we're seeing differences in state reporting standards?
