@@ -1,0 +1,115 @@
+---
+title: ""
+author: ""
+date:
+output:
+  github_document
+---
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+
+df_tuition_cost <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/tuition_cost.csv')
+
+df_tuition_income <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/tuition_income.csv')
+
+df_salary_potential <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/salary_potential.csv')
+
+df_historical_tuition <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/historical_tuition.csv')
+
+df_diversity_school <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-10/diversity_school.csv')
+```
+
+```{r theme}
+theme_common <- function() {
+  theme_minimal() %+replace%
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(margin = margin(4, 4, 4, 4), size = 16),
+    axis.title.y = element_text(margin = margin(4, 4, 4, 4), size = 16, angle = 90),
+
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 12),
+
+    strip.text.x = element_text(size = 12),
+    strip.text.y = element_text(size = 12),
+
+    panel.grid.major = element_line(color = "grey90"),
+    panel.grid.minor = element_line(color = "grey90"),
+
+    aspect.ratio = 4 / 4,
+
+    plot.margin = unit(c(t = +0, b = +0, r = +0, l = +0), "cm"),
+    plot.title = element_text(size = 18, hjust = 0),
+    plot.title.position = "plot",
+    plot.subtitle = element_text(size = 16, hjust = 0),
+    plot.subtitle.position = "plot",
+    plot.caption = element_text(size = 12, hjust = 1)
+    plot.caption.position = "plot"
+  )
+}
+```
+
+### EDA
+<!-- -------------------------------------------------- -->
+
+### Vis
+<!-- -------------------------------------------------- -->
+
+```{r tuition_timeseries_4yr}
+df_historical_tuition %>%
+  mutate(
+    year = str_extract(year, "^\\d{4}") %>%
+      as.integer
+  ) %>%
+  filter(tuition_type == "4 Year Constant") %>%
+
+  ggplot(aes(year, tuition_cost, color = type)) +
+  geom_line() +
+
+  scale_y_continuous(labels = scales::label_dollar()) +
+  scale_color_discrete(name = "") +
+  theme_common() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Year",
+    y = "Tuition",
+    subtitle = "Average annual adjusted tuition",
+    caption = "4-Year Colleges; Cost adjusted to Consumer Price Index; Source: NCES"
+  )
+```
+
+Observations:
+
+- Even controlling for inflation according to the Consumer Price Index (CPI), the cost of all 4-year colleges has been increasing
+- Over the past 30 years (1985--2015), the average cost of private institutions has roughly doubled
+
+```{r tuition_timeseries_2yr}
+df_historical_tuition %>%
+  mutate(
+    year = str_extract(year, "^\\d{4}") %>%
+      as.integer
+  ) %>%
+  filter(tuition_type == "2 Year Constant") %>%
+
+  ggplot(aes(year, tuition_cost, color = type)) +
+  geom_line() +
+
+  scale_y_continuous(labels = scales::label_dollar()) +
+  scale_color_discrete(name = "") +
+  theme_common() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Year",
+    y = "Tuition",
+    subtitle = "Average annual adjusted tuition",
+    caption = "2-Year Colleges; Cost adjusted to Consumer Price Index; Source: NCES"
+  )
+```
+
+Observations:
+
+- The cost of public 2-year institutions held constant until around 2000, at which point it began to climb
+-
