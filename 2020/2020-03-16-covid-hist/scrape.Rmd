@@ -1,5 +1,5 @@
 ---
-title: "Daily CDC Scrape"
+title: "Daily Data Scrape"
 author: "Zach"
 date: 2020-03-16
 output:
@@ -20,7 +20,7 @@ library(tidyverse)
 library(rvest)
 library(lubridate)
 
-filename_stub <- "./data/covid19_santa_clara_"
+filename_stub <- "./data/covid19_santa_clara"
 date_today <- today()
 ```
 
@@ -84,7 +84,10 @@ date_update <-
 ```{r write}
 filename <- str_c(
   filename_stub,
+  "_t",
   date_today,
+  "_u",
+  date_update,
   ".csv"
 )
 
