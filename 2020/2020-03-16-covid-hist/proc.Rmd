@@ -1,0 +1,108 @@
+---
+title: "Santa Clara COVID-19 Cases"
+author: "Zach"
+date: 2020-03-21
+output:
+  github_document
+---
+
+Process the scraped data. This is a developing situation, so I expect to have to
+return to this script many times.
+
+```{r setup}
+library(tidyverse)
+library(lubridate)
+library(ggrepel)
+
+# Data directory
+dir_data <- "./data"
+# Find all the data files
+df_files_all <-
+  tibble(file = list.files(dir_data, full.names = TRUE)) %>%
+  mutate(name = str_sub(str_extract(file, "[^/]+\\."), 1, -2))
+
+df_files_all %>% head
+
+theme_common <- function() {
+  theme_minimal() %+replace%
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(margin = margin(4, 4, 4, 4), size = 16),
+    axis.title.y = element_text(margin = margin(4, 4, 4, 4), size = 16, angle = 90),
+
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 12),
+
+    strip.text.x = element_text(size = 12),
+    strip.text.y = element_text(size = 12),
+
+    panel.grid.major = element_line(color = "grey90"),
+    panel.grid.minor = element_line(color = "grey90"),
+
+    aspect.ratio = 4 / 4,
+
+    plot.margin = unit(c(t = +0, b = +0, r = +0, l = +0), "cm"),
+    plot.title = element_text(size = 18),
+    plot.title.position = "plot",
+    plot.subtitle = element_text(size = 16),
+    plot.caption = element_text(size = 12, hjust = 1)
+  )
+}
+```
+
+Load and wrangle all data
+
+```{r load-n-wrangle}
+df_all <-
+  ## Load all files
+  pmap_dfr(
+    df_files_all,
+    function(file, name) {
+      accessed <-
+        str_extract(name, "_t[\\d-]*_u") %>%
+        str_sub(., 3, -2) %>%
+        ymd()
+      updated <-
+        str_extract(name, "_u[\\d-]*") %>%
+        str_sub(., 3) %>%
+        ymd
+
+      read_csv(file) %>%
+        mutate(
+          accessed = accessed,
+          updated = updated
+        )
+    }
+  ) %>%
+  ## Tidy
+  pivot_wider(names_from = var, values_from = val)
+```
+
+Plot the data.
+
+```{r vis}
+df_all %>%
+
+  ggplot(aes(updated, Total_Confirmed_Cases)) +
+  geom_line() +
+  geom_point(size = 3) +
+  geom_label_repel(
+    aes(label = str_c(accessed)),
+    point.padding = 1
+  ) +
+
+  theme_common() +
+  labs(
+    x = "Documented County Update",
+    y = "Total Confirmed COVID-19 Cases",
+    caption = "Points labeled with date accessed"
+  )
+
+```
+
+Observations:
+
+- I didn't think to collect the _time of day_ of each update, so some of the
+  points may lie on top of each other.
+- Is the first entry on March 17th a data error?
