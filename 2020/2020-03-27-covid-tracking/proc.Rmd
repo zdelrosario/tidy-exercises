@@ -1,0 +1,104 @@
+```{r }
+library(tidyverse)
+
+url_states_current <- "https://covidtracking.com/api/states.csv"
+url_states_historical <- "http://covidtracking.com/api/states/daily.csv"
+
+filename_states_current <- "./data/states_current.csv"
+filename_states_historical <- "./data/states_historical.csv"
+```
+
+```{r download}
+curl::curl_download(
+        url_states_current,
+        destfile = filename_states_current
+      )
+
+curl::curl_download(
+        url_states_historical,
+        destfile = filename_states_historical
+      )
+
+```
+
+```{r read}
+df_states_current <- read_csv(filename_states_current)
+df_states_historical <- read_csv(filename_states_historical)
+```
+
+### Cases
+
+```{r vis-cases}
+df_states_historical %>%
+  group_by(state) %>%
+  mutate(max_positive = max(positive)) %>%
+  ungroup() %>%
+  filter(
+    positiveIncrease > 0,
+    dense_rank(-max_positive) <= 10
+  ) %>%
+
+  ggplot(aes(
+    positive,
+    positiveIncrease,
+    color = state
+  )) +
+  geom_smooth(se = FALSE, size = 2) +
+  geom_line() +
+  geom_point() +
+
+  scale_x_log10() +
+  scale_y_log10() +
+  theme(legend.position = "bottom")
+```
+
+### Tests
+
+```{r vis-tests}
+df_states_historical %>%
+  group_by(state) %>%
+  mutate(max_test = max(totalTestResults)) %>%
+  ungroup() %>%
+  filter(
+    totalTestResults > 0,
+    dense_rank(-max_test) <= 10
+  ) %>%
+
+  ggplot(aes(
+    totalTestResults,
+    totalTestResultsIncrease,
+    color = state
+  )) +
+  geom_smooth(se = FALSE, size = 2) +
+  geom_line() +
+  geom_point() +
+
+  scale_x_log10() +
+  scale_y_log10() +
+  theme(legend.position = "bottom")
+```
+
+
+```{r vis-normalized}
+df_states_historical %>%
+  group_by(state) %>%
+  mutate(max_positive = max(positive)) %>%
+  ungroup() %>%
+  filter(
+    positiveIncrease > 0,
+    dense_rank(-max_positive) <= 10
+  ) %>%
+
+  ggplot(aes(
+    positive / totalTestResults,
+    positiveIncrease / totalTestResults,
+    color = state
+  )) +
+  geom_smooth(se = FALSE, size = 2) +
+  geom_line() +
+  geom_point() +
+
+  scale_x_log10() +
+  scale_y_log10() +
+  theme(legend.position = "bottom")
+```
