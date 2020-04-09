@@ -1,0 +1,98 @@
+---
+title: "ABET-Accredited Engineering Programs in the US"
+author: "Zach"
+date: 2020-04-09
+output:
+  github_document
+---
+
+A simple investigation of Wikipedia's [List of engineering
+schools](https://en.wikipedia.org/wiki/List_of_engineering_schools). My focus is
+on institutions in the US.
+
+```{r setup}
+library(tidyverse)
+library(rvest)
+
+url_engr <- "https://en.wikipedia.org/wiki/List_of_engineering_schools"
+engr_selector <- "table.wikitable:nth-child(42)"
+```
+
+## Scrape and Wrangle Data
+<!-- -------------------------------------------------- -->
+
+```{r }
+page <- read_html(url_engr)
+```
+
+```{r }
+## Parse html
+df_raw <-
+  page %>%
+  html_nodes(engr_selector) %>%
+  html_table(fill = TRUE) %>%
+  .[[1]] %>%
+  as_tibble()
+
+## Wrangle
+df_engr <-
+  df_raw %>%
+  mutate(
+    `State (city)[10]` = if_else(
+      str_detect(`State (city)[10]`, "District of Columbia"),
+      "District of Columbia (District of Columbia)",
+      `State (city)[10]`
+    )
+  ) %>%
+  extract(
+    col = `State (city)[10]`,
+    into = c("state", "city"),
+    regex = "([\\w\\s[:punct:]]+)\\((.+)\\)"
+  ) %>%
+  rename(
+    has_grad = `Master's/doctoralprograms?`
+  ) %>%
+  rename_all(str_to_lower) %>%
+  mutate(
+    has_grad = if_else(has_grad == "Yes", TRUE, FALSE),
+    state = str_trim(state)
+  )
+
+df_engr %>%
+  filter(is.na(state))
+```
+
+## EDA
+<!-- -------------------------------------------------- -->
+
+```{r }
+df_engr %>% count()
+```
+
+There are `r df_engr %>% count() %>% pull(n)` universities in the United States
+with ABET-accredited engineering programs. This is fewer than I expected.
+
+```{r }
+df_engr %>%
+  count(state) %>%
+  arrange(desc(n)) %>%
+  knitr::kable()
+```
+
+Observations:
+
+- California, Texas, and New York have the most institutions with engineering programs
+- Delaware, Hawaii, Nebraska, and Wyoming have the fewest (one each)
+
+```{r }
+df_engr %>%
+  count(city) %>%
+  arrange(desc(n)) %>%
+  head(10)
+```
+
+Observations:
+
+- The cities with the most engineering institutions are the ones I'd expect
+- However, I'd think Boston would have more institutions?
+  - Note that MIT and Harvard are in Cambridge
