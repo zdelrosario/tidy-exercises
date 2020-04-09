@@ -59,3 +59,7 @@ Here's a history of the exercises, along with a brief description of lessons lea
 - 2020-02-25: [Vaccination Rates](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-02-25-vaccines/proc.md)
   + There is **huge** variation in vaccination rates across schools within the same state; schools in California range between near-zero and near 100% vaccination!
   + Median MMR and overall vaccination rates tend to be high, though Arkansas lags in MMR and Idaho lags in overall
+- 2020-04-09: [ABET-Accredited Engineering Programs](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-04-09-us-engr/proc.md)
+  + There are `370` US institutiosn with ABET-accredited engineering programs in the US, as of 2020-04-09
+  + A large majority are in California, Texas, and New York
+  + Boston, LA, NYC, Philadelphia, and the District of Columbia have the most, with 4 each
