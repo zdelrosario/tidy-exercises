@@ -63,3 +63,8 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + There are `370` US institutiosn with ABET-accredited engineering programs in the US, as of 2020-04-09
   + A large majority are in California, Texas, and New York
   + Boston, LA, NYC, Philadelphia, and the District of Columbia have the most, with 4 each
+- 2020-05-30: [NYT COVID-19 Data](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-05-30-nyt-covid-counties/proc.md)
+  + The NYT publishes county-level covid-19 data; this allows for a detailed look at the outbreak across the country
+  + The bulk of counties started reporting cases around March 03
+  + As of 2020-05-30, the following states case increase has slowed: AL, HI, KS, ME, MA, MI, MT, NV, NJ, NY, VT, WA. All other states seem to be increasing in case count
+  + Some counties are extreme outliers in terms of large case counts per capita. Many of these are small (~10,000) to medium-counties (~50,000), often with outbreaks in prisons
