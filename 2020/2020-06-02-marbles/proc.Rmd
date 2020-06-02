@@ -1,0 +1,155 @@
+---
+title: "Marbles"
+author: "Zach del Rosario"
+date: 2020-06-02
+output:
+  github_document
+---
+
+Today's TidyTuesday is on ["Jelle's Marble Runs"](https://github.com/rfordatascience/tidytuesday/tree/master/data/2020/2020-06-02).
+
+```{r setup}
+library(tidyverse)
+library(rzdr)
+
+df_marbles <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-06-02/marbles.csv')
+```
+
+# First Look
+<!-- -------------------------------------------------- -->
+
+```{r }
+df_marbles %>% glimpse()
+```
+
+```{r }
+df_marbles %>% summary()
+```
+
+It's unclear to me how `avg_time_lap` is computed; what is the average over?
+
+```{r }
+df_marbles %>%
+  mutate(
+    time_comp = avg_time_lap * number_laps,
+    time_diff = time_s - time_comp
+  ) %>%
+  summary
+```
+
+`time_comp` is approximately equal to `time_s`; it appears that `avg_time_lap` is the average over all laps.
+
+# 1D EDA
+<!-- -------------------------------------------------- -->
+
+```{r vis-marble-times}
+df_marbles %>%
+
+  ggplot(
+    aes(fct_reorder(marble_name, avg_time_lap, na.rm = TRUE), avg_time_lap, fill = team_name)
+  ) +
+  geom_boxplot() +
+
+  scale_fill_discrete(name = "Team") +
+  coord_flip() +
+  theme_common() +
+  labs(
+    x = "Marble",
+    y = "Average Lap Time (s)"
+  )
+```
+
+**Observations**:
+
+- There's certainly variation in the lap times, but it could easily be due to noise alone
+
+```{r vis-track-times}
+df_marbles %>%
+
+  ggplot(aes(fct_reorder(site, avg_time_lap, na.rm = TRUE), avg_time_lap)) +
+  geom_boxplot() +
+
+  coord_flip() +
+  theme_common() +
+  labs(
+    x = "Track",
+    y = "Average Lap Time (s)"
+  )
+```
+
+**Observations**:
+
+- There is definitive variation in lap time with track
+
+# Modeling
+<!-- -------------------------------------------------- -->
+
+### ANOVA
+<!-- ------------------------- -->
+
+Is there a significant difference in speeed among the marbles?
+
+```{r anova-marbles-speed}
+df_marbles %>%
+  mutate(speed = avg_time_lap / track_length_m) %>%
+  lm(speed ~ marble_name, data = .) %>%
+  anova() %>%
+  broom::tidy()
+```
+
+There's no strong effect of individual marble. For comparison, let's do the same
+with sites.
+
+```{r anova-track-time}
+df_marbles %>%
+  lm(avg_time_lap ~ site, data = .) %>%
+  anova() %>%
+  broom::tidy()
+```
+
+There's a huge effect of track site on lap time.
+
+### Linear Models
+<!-- ------------------------- -->
+
+Can we predict `avg_time_lap` well based on `site`?
+
+```{r lm-track-site}
+df_marbles %>%
+  lm(
+    formula = avg_time_lap ~ site,
+    data = .
+  ) %>%
+  summary()
+```
+
+The `site` variable carries a lot of information; how much can we recapture with
+a coarser description of the track using just the features`number_laps` and
+`track_length_m`.
+
+```{r lm-track-feat}
+df_marbles %>%
+  lm(
+    formula = avg_time_lap ~ number_laps + track_length_m,
+    data = .
+  ) %>%
+  summary()
+```
+
+We get nearly the same COD using these features. This is nice because we use
+fewer DOF for the fit, which will help with the model below:
+
+Now let's fit on track features along with marble names; this will model the
+variation in marble lap times, controlling for the track.
+
+```{r lm-track-both}
+df_marbles %>%
+  lm(
+    formula = avg_time_lap ~ number_laps + track_length_m + marble_name,
+    data = .
+  ) %>%
+  anova() %>%
+  broom::tidy()
+```
+
+Once again, we see that marble identity does not have a significant effect on lap time.
