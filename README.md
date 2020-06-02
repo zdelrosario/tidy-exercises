@@ -68,3 +68,5 @@ Here's a history of the exercises, along with a brief description of lessons lea
   + The bulk of counties started reporting cases around March 03
   + As of 2020-05-30, the following states case increase has slowed: AL, HI, KS, ME, MA, MI, MT, NV, NJ, NY, VT, WA. All other states seem to be increasing in case count
   + Some counties are extreme outliers in terms of large case counts per capita. Many of these are small (~10,000) to medium-counties (~50,000), often with outbreaks in prisons
+- 2020-06-02: [Marbles](https://github.com/zdelrosario/tidy-exercises/blob/master/2020/2020-06-02-marbles/proc.md)
+  + Unsurprisingly, there does not seem to be a significant effect of marble on lap time!
