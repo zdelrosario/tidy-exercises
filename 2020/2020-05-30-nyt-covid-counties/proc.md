@@ -5,7 +5,8 @@ Zach del Rosario
 
 This is an analysis of the New York Times [county-level covid-19
 data](https://github.com/nytimes/covid-19-data). Additionally, I use US
-Census Data to normalize counts by 2018 population estimates.
+Census Data to normalize counts by 2018 population
+    estimates.
 
 # Setup
 
@@ -13,8 +14,31 @@ Census Data to normalize counts by 2018 population estimates.
 
 ``` r
 library(tidyverse)
-library(lubridate)
+```
 
+    ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──
+
+    ## ✔ ggplot2 3.3.1     ✔ purrr   0.3.4
+    ## ✔ tibble  3.0.1     ✔ dplyr   1.0.0
+    ## ✔ tidyr   1.1.0     ✔ stringr 1.4.0
+    ## ✔ readr   1.3.1     ✔ forcats 0.5.0
+
+    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+    ## ✖ dplyr::filter() masks stats::filter()
+    ## ✖ dplyr::lag()    masks stats::lag()
+
+``` r
+library(lubridate)
+```
+
+    ## 
+    ## Attaching package: 'lubridate'
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     date, intersect, setdiff, union
+
+``` r
 url_counties <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
 filename_counties <- "./data/counties.csv"
 
@@ -69,7 +93,7 @@ df_counties <- read_csv(filename_counties)
     ##   deaths = col_double()
     ## )
 
-Additionally, I use the `2018: ACS 5-Year Estiamtes Detailed Tables`
+Additionally, I use the `2018: ACS 5-Year Estimates Detailed Tables`
 [Total
 Population](https://data.census.gov/cedsci/table?q=county%20population&g=0100000US.050000&hidePreview=false&tid=ACSDT5Y2018.B01003&t=Populations%20and%20People&vintage=2010)
 for county-level population estimates. Load those locally:
@@ -111,19 +135,19 @@ df_counties %>% summary
 ```
 
     ##       date               county             state               fips          
-    ##  Min.   :2020-01-21   Length:188631      Length:188631      Length:188631     
-    ##  1st Qu.:2020-04-10   Class :character   Class :character   Class :character  
-    ##  Median :2020-04-27   Mode  :character   Mode  :character   Mode  :character  
-    ##  Mean   :2020-04-26                                                           
-    ##  3rd Qu.:2020-05-14                                                           
-    ##  Max.   :2020-05-29                                                           
+    ##  Min.   :2020-01-21   Length:233740      Length:233740      Length:233740     
+    ##  1st Qu.:2020-04-14   Class :character   Class :character   Class :character  
+    ##  Median :2020-05-05   Mode  :character   Mode  :character   Mode  :character  
+    ##  Mean   :2020-05-04                                                           
+    ##  3rd Qu.:2020-05-25                                                           
+    ##  Max.   :2020-06-13                                                           
     ##      cases              deaths        
     ##  Min.   :     0.0   Min.   :    0.00  
-    ##  1st Qu.:     4.0   1st Qu.:    0.00  
-    ##  Median :    17.0   Median :    0.00  
-    ##  Mean   :   331.7   Mean   :   18.52  
-    ##  3rd Qu.:    80.0   3rd Qu.:    2.00  
-    ##  Max.   :206800.0   Max.   :20960.00
+    ##  1st Qu.:     5.0   1st Qu.:    0.00  
+    ##  Median :    21.0   Median :    0.00  
+    ##  Mean   :   391.5   Mean   :   21.99  
+    ##  3rd Qu.:   101.0   3rd Qu.:    3.00  
+    ##  Max.   :214242.0   Max.   :21551.00
 
 **Observations**
 
@@ -150,7 +174,7 @@ df_counties %>% filter(cases == 0, deaths == 0)
 df_counties %>% glimpse
 ```
 
-    ## Rows: 188,631
+    ## Rows: 233,740
     ## Columns: 6
     ## $ date   <date> 2020-01-21, 2020-01-22, 2020-01-23, 2020-01-24, 2020-01-24, 2…
     ## $ county <chr> "Snohomish", "Snohomish", "Snohomish", "Cook", "Snohomish", "O…
@@ -180,7 +204,7 @@ df_counties %>%
   length
 ```
 
-    ## [1] 2958
+    ## [1] 3002
 
 This is over 90% of the counties in the US; not quite complete, but the
 vast majority.
@@ -202,16 +226,16 @@ df_counties %>%
     ## # A tibble: 48 x 3
     ##    county        state              n
     ##    <chr>         <chr>          <int>
-    ##  1 New York City New York          90
-    ##  2 Unknown       Rhode Island      90
-    ##  3 Unknown       New Jersey        79
-    ##  4 Unknown       Puerto Rico       78
-    ##  5 Unknown       Virgin Islands    77
-    ##  6 Unknown       Guam              76
-    ##  7 Unknown       Massachusetts     75
-    ##  8 Unknown       Louisiana         73
-    ##  9 Kansas City   Missouri          71
-    ## 10 Unknown       Arkansas          71
+    ##  1 New York City New York         105
+    ##  2 Unknown       Rhode Island     105
+    ##  3 Unknown       New Jersey        94
+    ##  4 Unknown       Puerto Rico       93
+    ##  5 Unknown       Virgin Islands    92
+    ##  6 Unknown       Guam              91
+    ##  7 Unknown       Massachusetts     90
+    ##  8 Unknown       Louisiana         88
+    ##  9 Kansas City   Missouri          86
+    ## 10 Unknown       Arkansas          86
     ## # … with 38 more rows
 
 **Observations**
@@ -313,7 +337,13 @@ df_duration %>%
   )
 ```
 
+    ## Warning: Removed 7 rows containing non-finite values (stat_bin).
+
     ## Warning: Removed 2 rows containing missing values (geom_bar).
+
+    ## Warning: Removed 1 rows containing missing values (geom_segment).
+
+    ## Warning: Removed 1 rows containing missing values (geom_label).
 
 ![](proc_files/figure-gfm/vis-start-1.png)<!-- -->
 
@@ -457,13 +487,13 @@ df_cases_filled %>%
 <!-- ------------------------- -->
 
 ``` r
-plot_cpk <- function(state_name) {
+plot_cpk <- function(state_name, n_max = 3) {
   top_counties <-
     df_cases_filled %>%
     filter(state == state_name, date == max(date)) %>%
     group_by(county) %>%
     summarize(cpk = median(cases_per_100k)) %>%
-    filter(dense_rank(-cpk) <= 3) %>%
+    filter(dense_rank(-cpk) <= n_max) %>%
     pull(county)
 
   bot_counties <-
@@ -471,7 +501,7 @@ plot_cpk <- function(state_name) {
     filter(state == state_name, date == max(date)) %>%
     group_by(county) %>%
     summarize(cpk = median(cases_per_100k)) %>%
-    filter(dense_rank(cpk) <= 3) %>%
+    filter(dense_rank(cpk) <= n_max) %>%
     pull(county)
 
   df_cases_filled %>%
@@ -494,7 +524,7 @@ plot_cpk <- function(state_name) {
     ) +
     geom_smooth(aes(group = state), se = FALSE, color = "black", size = 1) +
 
-    scale_x_date(labels = scales::label_date("%m / %d"), date_breaks = "10 days") +
+    scale_x_date(labels = scales::label_date("%m / %d"), date_breaks = "20 days") +
     scale_y_log10() +
     scale_color_discrete(name = "County") +
     theme_common() +
@@ -505,16 +535,7 @@ plot_cpk <- function(state_name) {
       caption = str_c("As of ", today(), " Source: The New York Times")
     )
 }
-
-plot_cpk("Massachusetts")
 ```
-
-    ## `summarise()` ungrouping output (override with `.groups` argument)
-    ## `summarise()` ungrouping output (override with `.groups` argument)
-
-    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-
-![](proc_files/figure-gfm/cpk-state-helper-1.png)<!-- -->
 
 ### Arkansas
 
@@ -539,6 +560,32 @@ plot_cpk("Arkansas")
         [prisons](https://www.themarshallproject.org/2020/04/24/these-prisons-are-doing-mass-testing-for-covid-19-and-finding-mass-infections)
         uncovered many cases, which accounts for the
     increase
+
+### California
+
+<!-- ------------------------- -->
+
+``` r
+plot_cpk("California", n_max = 4)
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+![](proc_files/figure-gfm/cpk-timeseries-ca-1.png)<!-- -->
+
+**Observations**
+
+  - Imperial County has a per-capita rate of infection so high, that
+    some residents are being transported to [San
+    Francisco](https://www.sandiegouniontribune.com/news/story/2020-06-14/imperial-county-has-highest-rate-of-covid-19-cases-in-the-state-it-wants-to-reopen-anyway)
+  - There was an outbreak in [Avenal
+    Prison](https://www.fresnobee.com/news/coronavirus/article242975596.html)
+    back in late May, but that probably doesn’t account for the
+    continued increase in
+    cases
 
 ### Idaho
 
@@ -566,6 +613,26 @@ plot_cpk("Idaho")
       - Apparently there was a cluster of covid-19 cases in Washington
         county due to a [family
         gathering](https://localnews8.com/health/coronavirus/2020/05/13/official-idaho-virus-outbreak-linked-to-family-gathering/)
+
+### Massachusetts
+
+<!-- ------------------------- -->
+
+``` r
+plot_cpk("Massachusetts")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+![](proc_files/figure-gfm/cpk-timeseries-ma-1.png)<!-- -->
+
+**Observations**
+
+  - Massachusetts seems to have flattened the
+    curve\!
 
 ### Minnesota
 

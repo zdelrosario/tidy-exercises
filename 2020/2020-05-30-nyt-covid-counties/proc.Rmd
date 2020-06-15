@@ -59,7 +59,7 @@ curl::curl_download(
 df_counties <- read_csv(filename_counties)
 ```
 
-Additionally, I use the `2018: ACS 5-Year Estiamtes Detailed Tables` [Total Population](https://data.census.gov/cedsci/table?q=county%20population&g=0100000US.050000&hidePreview=false&tid=ACSDT5Y2018.B01003&t=Populations%20and%20People&vintage=2010) for county-level population estimates. Load those locally:
+Additionally, I use the `2018: ACS 5-Year Estimates Detailed Tables` [Total Population](https://data.census.gov/cedsci/table?q=county%20population&g=0100000US.050000&hidePreview=false&tid=ACSDT5Y2018.B01003&t=Populations%20and%20People&vintage=2010) for county-level population estimates. Load those locally:
 
 ```{r load-acs}
 df_pop <- read_csv(
@@ -350,13 +350,13 @@ df_cases_filled %>%
 <!-- ------------------------- -->
 
 ```{r cpk-state-helper}
-plot_cpk <- function(state_name) {
+plot_cpk <- function(state_name, n_max = 3) {
   top_counties <-
     df_cases_filled %>%
     filter(state == state_name, date == max(date)) %>%
     group_by(county) %>%
     summarize(cpk = median(cases_per_100k)) %>%
-    filter(dense_rank(-cpk) <= 3) %>%
+    filter(dense_rank(-cpk) <= n_max) %>%
     pull(county)
 
   bot_counties <-
@@ -364,7 +364,7 @@ plot_cpk <- function(state_name) {
     filter(state == state_name, date == max(date)) %>%
     group_by(county) %>%
     summarize(cpk = median(cases_per_100k)) %>%
-    filter(dense_rank(cpk) <= 3) %>%
+    filter(dense_rank(cpk) <= n_max) %>%
     pull(county)
 
   df_cases_filled %>%
@@ -387,7 +387,7 @@ plot_cpk <- function(state_name) {
     ) +
     geom_smooth(aes(group = state), se = FALSE, color = "black", size = 1) +
 
-    scale_x_date(labels = scales::label_date("%m / %d"), date_breaks = "10 days") +
+    scale_x_date(labels = scales::label_date("%m / %d"), date_breaks = "20 days") +
     scale_y_log10() +
     scale_color_discrete(name = "County") +
     theme_common() +
@@ -398,8 +398,6 @@ plot_cpk <- function(state_name) {
       caption = str_c("As of ", today(), " Source: The New York Times")
     )
 }
-
-plot_cpk("Massachusetts")
 ```
 
 ### Arkansas
@@ -415,6 +413,18 @@ plot_cpk("Arkansas")
   - With population 13695, this is a small county
   - Apparently April testing in [prisons](https://www.themarshallproject.org/2020/04/24/these-prisons-are-doing-mass-testing-for-covid-19-and-finding-mass-infections) uncovered many cases, which accounts for the increase
 
+### California
+<!-- ------------------------- -->
+
+```{r cpk-timeseries-ca, cache=TRUE}
+plot_cpk("California", n_max = 4)
+```
+
+**Observations**
+
+- Imperial County has a per-capita rate of infection so high, that some residents are being transported to [San Francisco](https://www.sandiegouniontribune.com/news/story/2020-06-14/imperial-county-has-highest-rate-of-covid-19-cases-in-the-state-it-wants-to-reopen-anyway)
+- There was an outbreak in [Avenal Prison](https://www.fresnobee.com/news/coronavirus/article242975596.html) back in late May, but that probably doesn't account for the continued increase in cases
+
 ### Idaho
 <!-- ------------------------- -->
 
@@ -429,6 +439,17 @@ plot_cpk("Idaho")
 - Washington County
   - With population 10025, this is a small county
   - Apparently there was a cluster of covid-19 cases in Washington county due to a [family gathering](https://localnews8.com/health/coronavirus/2020/05/13/official-idaho-virus-outbreak-linked-to-family-gathering/)
+
+### Massachusetts
+<!-- ------------------------- -->
+
+```{r cpk-timeseries-ma, cache=TRUE}
+plot_cpk("Massachusetts")
+```
+
+**Observations**
+
+- Massachusetts seems to have flattened the curve!
 
 ### Minnesota
 <!-- ------------------------- -->
