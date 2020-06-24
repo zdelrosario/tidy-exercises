@@ -135,19 +135,19 @@ df_counties %>% summary
 ```
 
     ##       date               county             state               fips          
-    ##  Min.   :2020-01-21   Length:233740      Length:233740      Length:233740     
-    ##  1st Qu.:2020-04-14   Class :character   Class :character   Class :character  
-    ##  Median :2020-05-05   Mode  :character   Mode  :character   Mode  :character  
-    ##  Mean   :2020-05-04                                                           
-    ##  3rd Qu.:2020-05-25                                                           
-    ##  Max.   :2020-06-13                                                           
+    ##  Min.   :2020-01-21   Length:264120      Length:264120      Length:264120     
+    ##  1st Qu.:2020-04-17   Class :character   Class :character   Class :character  
+    ##  Median :2020-05-10   Mode  :character   Mode  :character   Mode  :character  
+    ##  Mean   :2020-05-09                                                           
+    ##  3rd Qu.:2020-06-02                                                           
+    ##  Max.   :2020-06-23                                                           
     ##      cases              deaths        
     ##  Min.   :     0.0   Min.   :    0.00  
     ##  1st Qu.:     5.0   1st Qu.:    0.00  
-    ##  Median :    21.0   Median :    0.00  
-    ##  Mean   :   391.5   Mean   :   21.99  
-    ##  3rd Qu.:   101.0   3rd Qu.:    3.00  
-    ##  Max.   :214242.0   Max.   :21551.00
+    ##  Median :    24.0   Median :    0.00  
+    ##  Mean   :   430.6   Mean   :   23.95  
+    ##  3rd Qu.:   117.0   3rd Qu.:    4.00  
+    ##  Max.   :217803.0   Max.   :21817.00
 
 **Observations**
 
@@ -174,7 +174,7 @@ df_counties %>% filter(cases == 0, deaths == 0)
 df_counties %>% glimpse
 ```
 
-    ## Rows: 233,740
+    ## Rows: 264,120
     ## Columns: 6
     ## $ date   <date> 2020-01-21, 2020-01-22, 2020-01-23, 2020-01-24, 2020-01-24, 2…
     ## $ county <chr> "Snohomish", "Snohomish", "Snohomish", "Cook", "Snohomish", "O…
@@ -204,7 +204,7 @@ df_counties %>%
   length
 ```
 
-    ## [1] 3002
+    ## [1] 3023
 
 This is over 90% of the counties in the US; not quite complete, but the
 vast majority.
@@ -226,16 +226,16 @@ df_counties %>%
     ## # A tibble: 48 x 3
     ##    county        state              n
     ##    <chr>         <chr>          <int>
-    ##  1 New York City New York         105
-    ##  2 Unknown       Rhode Island     105
-    ##  3 Unknown       New Jersey        94
-    ##  4 Unknown       Puerto Rico       93
-    ##  5 Unknown       Virgin Islands    92
-    ##  6 Unknown       Guam              91
-    ##  7 Unknown       Massachusetts     90
-    ##  8 Unknown       Louisiana         88
-    ##  9 Kansas City   Missouri          86
-    ## 10 Unknown       Arkansas          86
+    ##  1 New York City New York         115
+    ##  2 Unknown       Rhode Island     115
+    ##  3 Unknown       New Jersey       104
+    ##  4 Unknown       Puerto Rico      103
+    ##  5 Unknown       Virgin Islands   102
+    ##  6 Unknown       Guam             101
+    ##  7 Unknown       Massachusetts    100
+    ##  8 Unknown       Louisiana         98
+    ##  9 Kansas City   Missouri          96
+    ## 10 Unknown       Arkansas          96
     ## # … with 38 more rows
 
 **Observations**
@@ -337,7 +337,7 @@ df_duration %>%
   )
 ```
 
-    ## Warning: Removed 7 rows containing non-finite values (stat_bin).
+    ## Warning: Removed 28 rows containing non-finite values (stat_bin).
 
     ## Warning: Removed 2 rows containing missing values (geom_bar).
 
@@ -715,4 +715,20 @@ plot_cpk("Tennessee")
       - With population 14602, this is a medium county
       - Cases jumped in
         [April](https://wdef.com/2020/04/24/bledsoe-prison-warping-covid-19-case-stats-county/)
-        due to cases in Bledsoe County Regional Facility
+        due to cases in Bledsoe County Regional
+    Facility
+
+### Texas
+
+<!-- ------------------------- -->
+
+``` r
+plot_cpk("Texas")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+![](proc_files/figure-gfm/cpk-timeseries-tx-1.png)<!-- -->

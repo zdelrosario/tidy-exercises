@@ -497,3 +497,10 @@ plot_cpk("Tennessee")
 - Bledsoe County
   - With population 14602, this is a medium county
   - Cases jumped in [April](https://wdef.com/2020/04/24/bledsoe-prison-warping-covid-19-case-stats-county/) due to cases in Bledsoe County Regional Facility
+
+### Texas
+<!-- ------------------------- -->
+
+```{r cpk-timeseries-tx, cache=TRUE}
+plot_cpk("Texas")
+```
