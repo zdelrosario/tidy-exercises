@@ -135,19 +135,19 @@ df_counties %>% summary
 ```
 
     ##       date               county             state               fips          
-    ##  Min.   :2020-01-21   Length:264120      Length:264120      Length:264120     
-    ##  1st Qu.:2020-04-17   Class :character   Class :character   Class :character  
-    ##  Median :2020-05-10   Mode  :character   Mode  :character   Mode  :character  
-    ##  Mean   :2020-05-09                                                           
-    ##  3rd Qu.:2020-06-02                                                           
-    ##  Max.   :2020-06-23                                                           
+    ##  Min.   :2020-01-21   Length:279450      Length:279450      Length:279450     
+    ##  1st Qu.:2020-04-18   Class :character   Class :character   Class :character  
+    ##  Median :2020-05-13   Mode  :character   Mode  :character   Mode  :character  
+    ##  Mean   :2020-05-11                                                           
+    ##  3rd Qu.:2020-06-05                                                           
+    ##  Max.   :2020-06-28                                                           
     ##      cases              deaths        
     ##  Min.   :     0.0   Min.   :    0.00  
-    ##  1st Qu.:     5.0   1st Qu.:    0.00  
-    ##  Median :    24.0   Median :    0.00  
-    ##  Mean   :   430.6   Mean   :   23.95  
-    ##  3rd Qu.:   117.0   3rd Qu.:    4.00  
-    ##  Max.   :217803.0   Max.   :21817.00
+    ##  1st Qu.:     6.0   1st Qu.:    0.00  
+    ##  Median :    26.0   Median :    0.00  
+    ##  Mean   :   451.4   Mean   :   24.88  
+    ##  3rd Qu.:   125.0   3rd Qu.:    4.00  
+    ##  Max.   :219481.0   Max.   :21940.00
 
 **Observations**
 
@@ -174,7 +174,7 @@ df_counties %>% filter(cases == 0, deaths == 0)
 df_counties %>% glimpse
 ```
 
-    ## Rows: 264,120
+    ## Rows: 279,450
     ## Columns: 6
     ## $ date   <date> 2020-01-21, 2020-01-22, 2020-01-23, 2020-01-24, 2020-01-24, 2…
     ## $ county <chr> "Snohomish", "Snohomish", "Snohomish", "Cook", "Snohomish", "O…
@@ -204,7 +204,7 @@ df_counties %>%
   length
 ```
 
-    ## [1] 3023
+    ## [1] 3042
 
 This is over 90% of the counties in the US; not quite complete, but the
 vast majority.
@@ -223,20 +223,20 @@ df_counties %>%
   arrange(desc(n))
 ```
 
-    ## # A tibble: 48 x 3
+    ## # A tibble: 53 x 3
     ##    county        state              n
     ##    <chr>         <chr>          <int>
-    ##  1 New York City New York         115
-    ##  2 Unknown       Rhode Island     115
-    ##  3 Unknown       New Jersey       104
-    ##  4 Unknown       Puerto Rico      103
-    ##  5 Unknown       Virgin Islands   102
-    ##  6 Unknown       Guam             101
-    ##  7 Unknown       Massachusetts    100
-    ##  8 Unknown       Louisiana         98
-    ##  9 Kansas City   Missouri          96
-    ## 10 Unknown       Arkansas          96
-    ## # … with 38 more rows
+    ##  1 New York City New York         120
+    ##  2 Unknown       Rhode Island     120
+    ##  3 Unknown       New Jersey       109
+    ##  4 Unknown       Puerto Rico      108
+    ##  5 Unknown       Virgin Islands   107
+    ##  6 Unknown       Guam             106
+    ##  7 Unknown       Massachusetts    105
+    ##  8 Unknown       Louisiana        103
+    ##  9 Kansas City   Missouri         101
+    ## 10 Unknown       Arkansas         101
+    ## # … with 43 more rows
 
 **Observations**
 
@@ -337,7 +337,7 @@ df_duration %>%
   )
 ```
 
-    ## Warning: Removed 28 rows containing non-finite values (stat_bin).
+    ## Warning: Removed 47 rows containing non-finite values (stat_bin).
 
     ## Warning: Removed 2 rows containing missing values (geom_bar).
 
