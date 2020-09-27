@@ -346,6 +346,41 @@ df_cases_filled %>%
 - The other states have varying degrees of upward trend
 - Some counties are alarming outliers; for instance counties in AK, ID, MN, OH, and TN
 
+Day-to-day trends
+
+```{r day-to-day}
+df_cases_filled %>%
+  group_by(county, state) %>%
+  arrange(date) %>%
+  mutate(
+    delta = cases - lag(cases),
+    delta = if_else(delta < 0, 0, delta),
+    delta_per_100k = delta / population * 100000
+  ) %>%
+  filter(!is.na(delta)) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  mutate(id = as.factor((dense_rank(as.integer(fips))) %% n_roll)) %>%
+  ungroup() %>%
+
+  ggplot(aes(date, delta_per_100k, group = fips, color = id)) +
+  ## geom_line(size = 0.5) +
+  geom_smooth(aes(color = id), se = FALSE, size = 0.2) +
+  geom_smooth(aes(group = state), se = FALSE, color = "black", size = 1) +
+
+  scale_x_date(breaks = "2 months", date_labels = "%b") +
+  ## scale_y_log10() +
+  facet_wrap(~state) +
+  guides(color = "none") +
+  theme_common() +
+  labs(
+    x = "Date",
+    y = "New COVID-19 Cases per 100,000 Persons",
+    title = "County-level COVID-19 Cases",
+    caption = str_c("As of ", today(), " Source: The New York Times")
+  )
+```
+
 ### State-level data
 <!-- ------------------------- -->
 
@@ -400,6 +435,68 @@ plot_cpk <- function(state_name, n_max = 3) {
 }
 ```
 
+Compute new cases
+
+```{r new-cpk-state-helper}
+plot_new_cpk <- function(state_name, n_max = 3) {
+  df_state_new <-
+    df_cases_filled %>%
+    filter(state == state_name) %>%
+    group_by(county) %>%
+    arrange(date) %>%
+    mutate(
+      delta = cases - lag(cases),
+      delta = if_else(delta < 0, 0, delta),
+      delta_per_100k = delta / population * 100000
+    ) %>%
+    filter(!is.na(delta)) %>%
+    ungroup() %>%
+    mutate(id = as.factor((dense_rank(as.integer(fips))) %% n_roll))
+
+  top_counties <-
+    df_state_new %>%
+    filter(date == max(date)) %>%
+    group_by(county) %>%
+    summarize(dpk = median(delta_per_100k)) %>%
+    filter(dense_rank(-dpk) <= n_max) %>%
+    pull(county)
+
+  bot_counties <-
+    df_state_new %>%
+    filter(date == max(date)) %>%
+    group_by(county) %>%
+    summarize(dpk = median(delta_per_100k)) %>%
+    filter(dense_rank(dpk) <= n_max) %>%
+    pull(county)
+
+  df_state_new %>%
+    mutate(county = fct_reorder2(county, date, delta_per_100k)) %>%
+
+    ggplot(aes(date, delta_per_100k)) +
+    geom_step(
+      aes(group = county),
+      size = 0.5,
+      color = "grey80"
+    ) +
+    geom_step(
+      data = . %>% filter(county %in% c(top_counties, bot_counties)),
+      mapping = aes(color = county),
+      size = 0.5
+    ) +
+    geom_smooth(aes(group = state), se = FALSE, color = "black", size = 1) +
+
+    scale_x_date(labels = scales::label_date("%m / %d"), date_breaks = "30 days") +
+    scale_color_discrete(name = "County") +
+    theme_common() +
+    labs(
+      x = "Date",
+      y = "New COVID-19 Cases per 100,000 Persons",
+      title = str_c("County-level COVID-19 Cases in ", state_name),
+      caption = str_c("As of ", today(), " Source: The New York Times")
+    )
+}
+```
+
 ### Arkansas
 <!-- ------------------------- -->
 
@@ -413,6 +510,10 @@ plot_cpk("Arkansas")
   - With population 13695, this is a small county
   - Apparently April testing in [prisons](https://www.themarshallproject.org/2020/04/24/these-prisons-are-doing-mass-testing-for-covid-19-and-finding-mass-infections) uncovered many cases, which accounts for the increase
 
+```{r new-cpk-timeseries-ak, cache=TRUE}
+plot_new_cpk("Arkansas")
+```
+
 ### California
 <!-- ------------------------- -->
 
@@ -424,6 +525,23 @@ plot_cpk("California", n_max = 4)
 
 - Imperial County has a per-capita rate of infection so high, that some residents are being transported to [San Francisco](https://www.sandiegouniontribune.com/news/story/2020-06-14/imperial-county-has-highest-rate-of-covid-19-cases-in-the-state-it-wants-to-reopen-anyway)
 - There was an outbreak in [Avenal Prison](https://www.fresnobee.com/news/coronavirus/article242975596.html) back in late May, but that probably doesn't account for the continued increase in cases
+
+```{r new-cpk-timeseries-ca, cache=TRUE}
+plot_new_cpk("California")
+```
+
+### Florida
+<!-- ------------------------- -->
+
+```{r cpk-timeseries-fl, cache=TRUE}
+plot_cpk("Florida")
+```
+
+**Observations**
+
+```{r new-cpk-timeseries-fl, cache=TRUE}
+plot_new_cpk("Florida")
+```
 
 ### Idaho
 <!-- ------------------------- -->
@@ -440,6 +558,10 @@ plot_cpk("Idaho")
   - With population 10025, this is a small county
   - Apparently there was a cluster of covid-19 cases in Washington county due to a [family gathering](https://localnews8.com/health/coronavirus/2020/05/13/official-idaho-virus-outbreak-linked-to-family-gathering/)
 
+```{r new-cpk-timeseries-id, cache=TRUE}
+plot_new_cpk("Idaho")
+```
+
 ### Massachusetts
 <!-- ------------------------- -->
 
@@ -451,6 +573,10 @@ plot_cpk("Massachusetts")
 
 - Massachusetts seems to have flattened the curve!
 
+```{r new-cpk-timeseries-ma, cache=TRUE}
+plot_new_cpk("Massachusetts")
+```
+
 ### Minnesota
 <!-- ------------------------- -->
 
@@ -461,6 +587,10 @@ plot_cpk("Minnesota")
 - Nobles County
   - With population 21839, this is a small county
   - Apparently there was a cluster of covid-19 cases in Washington county due to a [family gathering](https://localnews8.com/health/coronavirus/2020/05/13/official-idaho-virus-outbreak-linked-to-family-gathering/)
+
+```{r new-cpk-timeseries-mn, cache=TRUE}
+plot_new_cpk("Minnesota")
+```
 
 ### Ohio
 <!-- ------------------------- -->
@@ -476,6 +606,10 @@ plot_cpk("Ohio")
 - Pickaway County
   - With population 57420, this is a medium county
   - [Pickaway Correctional Institution](https://www.dispatch.com/news/20200422/coronavirus-surges-at-pickaway-prison-now-no-2-hot-spot-in-nation---behind-marion-prison) also has a large number of cases
+
+```{r new-cpk-timeseries-oh, cache=TRUE}
+plot_new_cpk("Ohio")
+```
 
 ### Tennessee
 <!-- ------------------------- -->
@@ -498,9 +632,17 @@ plot_cpk("Tennessee")
   - With population 14602, this is a medium county
   - Cases jumped in [April](https://wdef.com/2020/04/24/bledsoe-prison-warping-covid-19-case-stats-county/) due to cases in Bledsoe County Regional Facility
 
+```{r new-cpk-timeseries-tn, cache=TRUE}
+plot_new_cpk("Tennessee")
+```
+
 ### Texas
 <!-- ------------------------- -->
 
 ```{r cpk-timeseries-tx, cache=TRUE}
 plot_cpk("Texas")
+```
+
+```{r new-cpk-timeseries-tx, cache=TRUE}
+plot_new_cpk("Texas", n_max = 0)
 ```

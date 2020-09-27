@@ -135,19 +135,19 @@ df_counties %>% summary
 ```
 
     ##       date               county             state               fips          
-    ##  Min.   :2020-01-21   Length:279450      Length:279450      Length:279450     
-    ##  1st Qu.:2020-04-18   Class :character   Class :character   Class :character  
-    ##  Median :2020-05-13   Mode  :character   Mode  :character   Mode  :character  
-    ##  Mean   :2020-05-11                                                           
-    ##  3rd Qu.:2020-06-05                                                           
-    ##  Max.   :2020-06-28                                                           
-    ##      cases              deaths        
-    ##  Min.   :     0.0   Min.   :    0.00  
-    ##  1st Qu.:     6.0   1st Qu.:    0.00  
-    ##  Median :    26.0   Median :    0.00  
-    ##  Mean   :   451.4   Mean   :   24.88  
-    ##  3rd Qu.:   125.0   3rd Qu.:    4.00  
-    ##  Max.   :219481.0   Max.   :21940.00
+    ##  Min.   :2020-01-21   Length:570096      Length:570096      Length:570096     
+    ##  1st Qu.:2020-05-14   Class :character   Class :character   Class :character  
+    ##  Median :2020-06-29   Mode  :character   Mode  :character   Mode  :character  
+    ##  Mean   :2020-06-27                                                           
+    ##  3rd Qu.:2020-08-12                                                           
+    ##  Max.   :2020-09-25                                                           
+    ##      cases            deaths        
+    ##  Min.   :     0   Min.   :    0.00  
+    ##  1st Qu.:    15   1st Qu.:    0.00  
+    ##  Median :    82   Median :    1.00  
+    ##  Mean   :  1006   Mean   :   37.87  
+    ##  3rd Qu.:   394   3rd Qu.:    9.00  
+    ##  Max.   :265775   Max.   :23792.00
 
 **Observations**
 
@@ -174,7 +174,7 @@ df_counties %>% filter(cases == 0, deaths == 0)
 df_counties %>% glimpse
 ```
 
-    ## Rows: 279,450
+    ## Rows: 570,096
     ## Columns: 6
     ## $ date   <date> 2020-01-21, 2020-01-22, 2020-01-23, 2020-01-24, 2020-01-24, 2…
     ## $ county <chr> "Snohomish", "Snohomish", "Snohomish", "Cook", "Snohomish", "O…
@@ -204,7 +204,7 @@ df_counties %>%
   length
 ```
 
-    ## [1] 3042
+    ## [1] 3210
 
 This is over 90% of the counties in the US; not quite complete, but the
 vast majority.
@@ -223,20 +223,20 @@ df_counties %>%
   arrange(desc(n))
 ```
 
-    ## # A tibble: 53 x 3
-    ##    county        state              n
-    ##    <chr>         <chr>          <int>
-    ##  1 New York City New York         120
-    ##  2 Unknown       Rhode Island     120
-    ##  3 Unknown       New Jersey       109
-    ##  4 Unknown       Puerto Rico      108
-    ##  5 Unknown       Virgin Islands   107
-    ##  6 Unknown       Guam             106
-    ##  7 Unknown       Massachusetts    105
-    ##  8 Unknown       Louisiana        103
-    ##  9 Kansas City   Missouri         101
-    ## 10 Unknown       Arkansas         101
-    ## # … with 43 more rows
+    ## # A tibble: 54 x 3
+    ##    county        state             n
+    ##    <chr>         <chr>         <int>
+    ##  1 New York City New York        209
+    ##  2 Unknown       Rhode Island    209
+    ##  3 Unknown       New Jersey      198
+    ##  4 Unknown       Puerto Rico     197
+    ##  5 Unknown       Guam            195
+    ##  6 Unknown       Massachusetts   194
+    ##  7 Unknown       Louisiana       192
+    ##  8 Kansas City   Missouri        190
+    ##  9 Unknown       Arkansas        190
+    ## 10 Unknown       Georgia         189
+    ## # … with 44 more rows
 
 **Observations**
 
@@ -337,7 +337,7 @@ df_duration %>%
   )
 ```
 
-    ## Warning: Removed 47 rows containing non-finite values (stat_bin).
+    ## Warning: Removed 136 rows containing non-finite values (stat_bin).
 
     ## Warning: Removed 2 rows containing missing values (geom_bar).
 
@@ -482,6 +482,51 @@ df_cases_filled %>%
   - Some counties are alarming outliers; for instance counties in AK,
     ID, MN, OH, and TN
 
+Day-to-day trends
+
+``` r
+df_cases_filled %>%
+  group_by(county, state) %>%
+  arrange(date) %>%
+  mutate(
+    delta = cases - lag(cases),
+    delta = if_else(delta < 0, 0, delta),
+    delta_per_100k = delta / population * 100000
+  ) %>%
+  filter(!is.na(delta)) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  mutate(id = as.factor((dense_rank(as.integer(fips))) %% n_roll)) %>%
+  ungroup() %>%
+
+  ggplot(aes(date, delta_per_100k, group = fips, color = id)) +
+  ## geom_line(size = 0.5) +
+  geom_smooth(aes(color = id), se = FALSE, size = 0.2) +
+  geom_smooth(aes(group = state), se = FALSE, color = "black", size = 1) +
+
+  scale_x_date(breaks = "2 months", date_labels = "%b") +
+  ## scale_y_log10() +
+  facet_wrap(~state) +
+  guides(color = "none") +
+  theme_common() +
+  labs(
+    x = "Date",
+    y = "New COVID-19 Cases per 100,000 Persons",
+    title = "County-level COVID-19 Cases",
+    caption = str_c("As of ", today(), " Source: The New York Times")
+  )
+```
+
+    ## `geom_smooth()` using method = 'loess' and formula 'y ~ x'
+
+    ## Warning: Removed 14632 rows containing non-finite values (stat_smooth).
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 14632 rows containing non-finite values (stat_smooth).
+
+![](proc_files/figure-gfm/day-to-day-1.png)<!-- -->
+
 ### State-level data
 
 <!-- ------------------------- -->
@@ -537,6 +582,68 @@ plot_cpk <- function(state_name, n_max = 3) {
 }
 ```
 
+Compute new cases
+
+``` r
+plot_new_cpk <- function(state_name, n_max = 3) {
+  df_state_new <-
+    df_cases_filled %>%
+    filter(state == state_name) %>%
+    group_by(county) %>%
+    arrange(date) %>%
+    mutate(
+      delta = cases - lag(cases),
+      delta = if_else(delta < 0, 0, delta),
+      delta_per_100k = delta / population * 100000
+    ) %>%
+    filter(!is.na(delta)) %>%
+    ungroup() %>%
+    mutate(id = as.factor((dense_rank(as.integer(fips))) %% n_roll))
+
+  top_counties <-
+    df_state_new %>%
+    filter(date == max(date)) %>%
+    group_by(county) %>%
+    summarize(dpk = median(delta_per_100k)) %>%
+    filter(dense_rank(-dpk) <= n_max) %>%
+    pull(county)
+
+  bot_counties <-
+    df_state_new %>%
+    filter(date == max(date)) %>%
+    group_by(county) %>%
+    summarize(dpk = median(delta_per_100k)) %>%
+    filter(dense_rank(dpk) <= n_max) %>%
+    pull(county)
+
+  df_state_new %>%
+    mutate(county = fct_reorder2(county, date, delta_per_100k)) %>%
+
+    ggplot(aes(date, delta_per_100k)) +
+    geom_step(
+      aes(group = county),
+      size = 0.5,
+      color = "grey80"
+    ) +
+    geom_step(
+      data = . %>% filter(county %in% c(top_counties, bot_counties)),
+      mapping = aes(color = county),
+      size = 0.5
+    ) +
+    geom_smooth(aes(group = state), se = FALSE, color = "black", size = 1) +
+
+    scale_x_date(labels = scales::label_date("%m / %d"), date_breaks = "30 days") +
+    scale_color_discrete(name = "County") +
+    theme_common() +
+    labs(
+      x = "Date",
+      y = "New COVID-19 Cases per 100,000 Persons",
+      title = str_c("County-level COVID-19 Cases in ", state_name),
+      caption = str_c("As of ", today(), " Source: The New York Times")
+    )
+}
+```
+
 ### Arkansas
 
 <!-- ------------------------- -->
@@ -560,6 +667,23 @@ plot_cpk("Arkansas")
         [prisons](https://www.themarshallproject.org/2020/04/24/these-prisons-are-doing-mass-testing-for-covid-19-and-finding-mass-infections)
         uncovered many cases, which accounts for the
     increase
+
+<!-- end list -->
+
+``` r
+plot_new_cpk("Arkansas")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-ak-1.png)<!-- -->
 
 ### California
 
@@ -586,6 +710,55 @@ plot_cpk("California", n_max = 4)
     back in late May, but that probably doesn’t account for the
     continued increase in
     cases
+
+<!-- end list -->
+
+``` r
+plot_new_cpk("California")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-ca-1.png)<!-- -->
+
+### Florida
+
+<!-- ------------------------- -->
+
+``` r
+plot_cpk("Florida")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+![](proc_files/figure-gfm/cpk-timeseries-fl-1.png)<!-- -->
+
+**Observations**
+
+``` r
+plot_new_cpk("Florida")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-fl-1.png)<!-- -->
 
 ### Idaho
 
@@ -614,6 +787,23 @@ plot_cpk("Idaho")
         county due to a [family
         gathering](https://localnews8.com/health/coronavirus/2020/05/13/official-idaho-virus-outbreak-linked-to-family-gathering/)
 
+<!-- end list -->
+
+``` r
+plot_new_cpk("Idaho")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-id-1.png)<!-- -->
+
 ### Massachusetts
 
 <!-- ------------------------- -->
@@ -633,6 +823,23 @@ plot_cpk("Massachusetts")
 
   - Massachusetts seems to have flattened the
     curve\!
+
+<!-- end list -->
+
+``` r
+plot_new_cpk("Massachusetts")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-ma-1.png)<!-- -->
 
 ### Minnesota
 
@@ -654,6 +861,23 @@ plot_cpk("Minnesota")
       - Apparently there was a cluster of covid-19 cases in Washington
         county due to a [family
         gathering](https://localnews8.com/health/coronavirus/2020/05/13/official-idaho-virus-outbreak-linked-to-family-gathering/)
+
+<!-- end list -->
+
+``` r
+plot_new_cpk("Minnesota")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-mn-1.png)<!-- -->
 
 ### Ohio
 
@@ -681,6 +905,23 @@ plot_cpk("Ohio")
         Institution](https://www.dispatch.com/news/20200422/coronavirus-surges-at-pickaway-prison-now-no-2-hot-spot-in-nation---behind-marion-prison)
         also has a large number of
     cases
+
+<!-- end list -->
+
+``` r
+plot_new_cpk("Ohio")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-oh-1.png)<!-- -->
 
 ### Tennessee
 
@@ -718,6 +959,23 @@ plot_cpk("Tennessee")
         due to cases in Bledsoe County Regional
     Facility
 
+<!-- end list -->
+
+``` r
+plot_new_cpk("Tennessee")
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-tn-1.png)<!-- -->
+
 ### Texas
 
 <!-- ------------------------- -->
@@ -732,3 +990,18 @@ plot_cpk("Texas")
     ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
 
 ![](proc_files/figure-gfm/cpk-timeseries-tx-1.png)<!-- -->
+
+``` r
+plot_new_cpk("Texas", n_max = 0)
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## `geom_smooth()` using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 248 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 248 row(s) containing missing values (geom_path).
+
+![](proc_files/figure-gfm/new-cpk-timeseries-tx-1.png)<!-- -->
