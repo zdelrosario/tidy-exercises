@@ -348,7 +348,7 @@ df_cases_filled %>%
 
 Day-to-day trends
 
-```{r day-to-day}
+```{r day-to-day, cache=TRUE, fig.width=12, fig.height=12}
 df_cases_filled %>%
   group_by(county, state) %>%
   arrange(date) %>%
