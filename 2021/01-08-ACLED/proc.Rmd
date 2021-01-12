@@ -1,0 +1,371 @@
+---
+title: "ACLED Data"
+output: github_document
+---
+
+This is a coarse look at the [ACLED Data](https://acleddata.com/special-projects/us-crisis-monitor/#1594231506765-4fb4695e-85a0) for the US.
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(ggalluvial)
+library(ggrepel)
+library(usmap)
+
+filename <- "~/Documents/Data/ACLED/USA_2020_Dec12.xlsx"
+```
+
+## Read and process the data
+<!-- -------------------------- -->
+
+```{r read}
+df_raw <- 
+  read_excel(filename)
+```
+
+
+```{r wrangle}
+df <- 
+  df_raw %>% 
+  janitor::clean_names() %>% 
+  mutate(event_date = ymd(event_date))
+
+df
+```
+
+## Basic Facts
+<!-- ----------------------------------------------------------------------- -->
+
+What columns do we have?
+
+```{r}
+df %>% names()
+```
+
+*Observations*:
+
+- `actor1`, `actor2` contain a description of the parties involved in an event
+- `inter1`, `inter2`, and `interaction` contain codes for the type of interaction between actors
+- There's no quantification for the number of persons involved in each event; it doesn't appear we can determine the number of persons involved in any given event
+  - However, there is a count of `fatalities`
+
+What years are represented?
+
+```{r}
+df %>% count(year)
+```
+
+*Observations*:
+
+- This dataset is only for `2020`.
+
+What are the event types?
+
+```{r}
+df %>% 
+  count(event_type) %>% 
+  arrange(desc(n))
+```
+
+The majority of events are `Protests`, with a few `Riots` and `Strategic developments`. The [ACLED codebook](https://acleddata.com/acleddatanew/wp-content/uploads/dlm_uploads/2019/04/ACLED_Codebook_2019FINAL_pbl.pdf) disambiguates the `event_types`:
+
+| Type     | Description |
+|----------|-----|
+| Protests | "a public demonstration in which the participants do not engage in violence" |
+| Riots    | "violent events where demonstrators or mobs engage in disruptive acts" |
+| St. dev. | "important information regarding the activities of violent groups" |
+| Violence... | Includes sexual violence, attacks, abduction/forced disappearance |
+| Battles | Includes armed clashes, gov't regains territory, non-state actor takes territory |
+
+What the heck were the 6 battles in the US in 2020?
+
+```{r}
+df %>% 
+  filter(event_type == "Battles") %>% 
+  select(event_date, actor1, actor2, notes) %>% 
+  knitr::kable()
+```
+
+There's very "thick" data on every event! One could spend *a lot* of time looking deeper into these data.
+
+What's in the `actor\\d` columns?
+
+```{r}
+df %>% 
+  count(actor1) %>% 
+  arrange(desc(n))
+
+df %>% 
+  count(actor2) %>% 
+  arrange(desc(n))
+```
+
+Note from the ACLED documentation "The order of actors has no meaning in the ACLED system, barring cases of ‘Violence against civilians’, in which the victim is always coded as Actor2."
+
+Create a manual recoding of actors; in particular make use of common acronyms.
+
+```{r def-recode}
+recode_actor <- function(actor) {
+  case_when(
+    str_detect(actor, "Protecting American Communities Task Force") ~ "PACT",
+    str_detect(actor, "Immigration and Customs Enforcement") ~ "ICE",
+    str_detect(actor, "Prison Guards") ~ "Prison Guards",
+    str_detect(actor, "Department of Homeland Security") ~ "DHS",
+    str_detect(actor, "National Guard") ~ "National Guard",
+    str_detect(actor, "Border Patrol") ~ "Border Patrol",
+    str_detect(actor, "Federal Bureau of Investigation") ~ "FBI",
+    str_detect(actor, "Police Forces") ~ "Police",
+    TRUE ~ actor
+  )
+}
+
+## Low-res recoding to combine police forces
+recode_police <- function(actor) {
+  case_when(
+    str_detect(actor, "Police Forces") ~ "Police",
+    TRUE ~ actor
+  )
+}
+```
+
+What's the distribution of fatalities?
+
+```{r}
+df %>% 
+  ggplot(aes(fatalities)) +
+  geom_bar() +
+  scale_y_log10()
+```
+
+*Observations*:
+
+- The vast majority of recorded events had no reported fatalities
+- A little less than `100` events had a single fatality
+- A small number (less than `10`) had two fatalities
+
+Among the cases with nonzero fatalities, which actors tend to be involved?
+
+```{r}
+df_tmp <- 
+  df %>% 
+  filter(fatalities > 0) %>% 
+  mutate(
+    actor1 = recode_police(actor1),
+    actor2 = recode_police(actor2)
+  ) %>% 
+  count(actor1, actor2) %>% 
+  arrange(desc(n))
+
+df_tmp %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+*Observations*:
+
+- By far, the events that tend to most frequently result in a fatality occur between Police and Civilians
+
+## Timeline
+<!-- ----------------------------------------------------------------------- -->
+
+What dates are represented?
+
+```{r barchart-dates}
+df %>% 
+  
+  ggplot(aes(event_date)) +
+  geom_vline(
+    data = tribble(
+      ~date, ~event,
+      ymd("2020-05-25"), "George Floyd murdered",
+      ymd("2020-11-06"), "Election Night",
+    ),
+    mapping = aes(xintercept = date, color = event),
+    linetype = "dashed"
+  ) +
+  geom_bar() +
+  
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "All ACLED Events in the US, 2020",
+    x = "Date",
+    y = "Count"
+  )
+```
+
+*Observations*:
+
+- The data are for 2020 only, and furthermore only for May through December
+- It's likely the data were selected for the period just before George Floyd was murdered (May 25th)
+- It appears that events are relatively few in number before May 25th, spike and decay, but then jump down to a low level again after the November election.
+- There appears to be a seasonal trend on the timescale of a week; let's check that out below:
+
+On what day of the week do events occur?
+
+```{r barchart-weekday}
+df %>% 
+  mutate(weekday = wday(event_date, label = TRUE)) %>% 
+  
+  ggplot(aes(weekday)) +
+  geom_bar()
+```
+
+*Observations*:
+
+- Sensibly, the most events tend to occur on Sat, followed by Sun, then Fri
+
+How do event types vary over the year? (Aggregate over individual weeks to smooth weekly variation.)
+
+```{r}
+df %>% 
+  mutate(
+    week = week(event_date),
+    event_type = case_when(
+      !str_detect(event_type, "Protests|Riots") ~ "Other",
+      TRUE ~ event_type
+    )
+  ) %>% 
+  
+  ggplot(aes(week)) +
+  geom_vline(
+    data = tribble(
+      ~week, ~event,
+      week(ymd("2020-05-25")), "George Floyd murdered",
+      week(ymd("2020-11-06")), "Election Night",
+    ),
+    mapping = aes(xintercept = week, color = event),
+    linetype = "dashed"
+  ) +
+  geom_bar(aes(fill = event_type)) +
+  
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "All ACLED Events in the US, 2020",
+    x = "Week",
+    y = "Count"
+  )
+```
+
+*Observations*:
+
+- There was a massive spike in protests and riots after George Floyd was murdered, which continued at an elevated rate, only starting to decay after Election Night and into the holiday season.
+- There were more riots just after George Floyd was murdered, and the rate seemed slightly higher through the summer
+
+When did fatalities occur?
+
+```{r}
+df %>% 
+  mutate(
+    police = case_when(
+      str_detect(actor1, "Police") ~ TRUE,
+      str_detect(actor2, "Police") ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) %>% 
+  
+  filter(fatalities > 0) %>% 
+  
+  ggplot(aes(event_date)) +
+  geom_vline(
+    data = tribble(
+      ~date, ~event,
+      ymd("2020-05-25"), "George Floyd murdered",
+      ymd("2020-11-06"), "Election Night",
+    ),
+    mapping = aes(xintercept = date, color = event),
+    linetype = "dashed"
+  ) +
+  geom_bar(aes(fill = police)) +
+  
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  scale_fill_manual(
+    values = c(
+      `TRUE` = "red",
+      `FALSE` = "grey50"
+    )
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "ACLED Events with Fatalities in the US, 2020",
+    x = "Date",
+    y = "Count"
+  )
+```
+
+*Observations*:
+
+- There appears to be an increase in the rate of fatal events just following George Floyd's murder. 
+  - There's a general increase in the count of events (Protests, etc.), which may account for this increase.
+
+## Interactions
+<!-- ----------------------------------------------------------------------- -->
+
+What's the typical pairing between actors?
+
+```{r}
+df %>% 
+  mutate(
+    actor1 = recode_police(actor1),
+    actor2 = recode_police(actor2)
+  ) %>% 
+  count(actor1, actor2) %>% 
+  filter(
+    str_detect(actor1, "Protesters \\(Un") | str_detect(actor1, "Rioters")
+  ) %>%
+  replace_na(list(actor2 = "NA")) %>% 
+  mutate(
+    actor1 = str_remove(actor1, " \\(United States\\)"),
+    actor2 = str_remove(actor2, " \\(United States\\)"),
+    actor2 = case_when(
+      !str_detect(actor2, "Protesters|Rioters|Police|NA") ~ "Other",
+      TRUE ~ actor2
+    ),
+    actor2 = fct_reorder(actor2, -n),
+  ) %>% 
+  
+  ggplot(aes(axis1 = actor1, axis2 = actor2, y = n)) +
+  geom_alluvium(aes(fill = actor1)) +
+  geom_stratum() +
+  geom_text(
+    stat = "stratum", 
+    aes(label = after_stat(stratum))
+  ) +
+
+  scale_fill_manual(
+    values = c(
+      "Protesters" = "#00BFC4",
+      "Rioters" = "#F8766D"
+    )
+  ) +
+  guides(fill = "none") +
+  theme_minimal()
+```
+
+*Observations*:
+
+- Protesters most frequently interact with no one (`NA`)
+  - Hypothesis: These might be small protests, where no counter-group feels it necessary to oppose
+- Rioters most frequently interact with Police
+
+## Maps
+<!-- ----------------------------------------------------------------------- -->
+
+Just a simple map; I didn't take this analysis any further:
+
+```{r}
+plot_usmap(regions = "states") +
+  geom_point(
+    data = df %>%
+      select(longitude, latitude) %>%
+      usmap_transform(),
+    mapping = aes(longitude.1, latitude.1),
+    size = 1,
+    alpha = 1 / 5
+  )
+```
+
