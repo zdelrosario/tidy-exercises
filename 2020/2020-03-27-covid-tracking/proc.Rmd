@@ -1,11 +1,39 @@
 ```{r }
 library(tidyverse)
+library(lubridate)
 
 url_states_current <- "https://covidtracking.com/api/states.csv"
 url_states_historical <- "http://covidtracking.com/api/states/daily.csv"
 
 filename_states_current <- "./data/states_current.csv"
 filename_states_historical <- "./data/states_historical.csv"
+
+theme_common <- function() {
+  theme_minimal() %+replace%
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(margin = margin(4, 4, 4, 4), size = 16),
+    axis.title.y = element_text(margin = margin(4, 4, 4, 4), size = 16, angle = 90),
+
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 12),
+
+    strip.text.x = element_text(size = 12),
+    strip.text.y = element_text(size = 12),
+
+    panel.grid.major = element_line(color = "grey90"),
+    panel.grid.minor = element_line(color = "grey90"),
+
+    aspect.ratio = 4 / 4,
+
+    plot.margin = unit(c(t = +0, b = +0, r = +0, l = +0), "cm"),
+    plot.title = element_text(size = 18),
+    plot.title.position = "plot",
+    plot.subtitle = element_text(size = 16),
+    plot.caption = element_text(size = 12)
+  )
+}
 ```
 
 ```{r download}
@@ -26,7 +54,96 @@ df_states_current <- read_csv(filename_states_current)
 df_states_historical <- read_csv(filename_states_historical)
 ```
 
-### Cases
+# Country-level
+<!-- -------------------------------------------------- -->
+
+```{r proc-usa}
+df_usa <-
+  df_states_historical %>%
+  mutate(date = ymd(date)) %>%
+  group_by(date) %>%
+  summarize_at(
+    c("positive", "totalTestResults", "death", "positiveIncrease", "totalTestResultsIncrease", "deathIncrease"),
+    ~sum(., na.rm = TRUE)
+  )
+```
+
+```{r vis-usa}
+df_usa %>%
+  ggplot(aes(date)) +
+  geom_point(aes(y = death, color = "Deaths")) +
+  geom_point(aes(y = positive, color = "Cases")) +
+
+  scale_y_log10()
+```
+
+```{r usa-deaths-v-increase}
+df_usa %>%
+  ggplot(aes(death, deathIncrease)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_log10() +
+  scale_y_log10()
+```
+
+# State-level
+<!-- -------------------------------------------------- -->
+
+### Timeline: Cases
+
+```{r timeline-cases}
+df_states_historical %>%
+  mutate(date = ymd(date)) %>%
+  group_by(state) %>%
+  mutate(max_positive = max(positive)) %>%
+  ungroup() %>%
+  filter(
+    ## dense_rank(-max_positive) <= 10,
+    ## state %in% c("CA", "NY", "WA", "MA", "HI")
+    state %in% c("TX", "FL", "GA", "SC", "NC", "NY", "MA")
+  ) %>%
+
+  ggplot(aes(
+    x = date,
+    y = positive,
+    color = fct_reorder2(state, date, positive)
+    ## y = death,
+    ## color = fct_reorder2(state, date, death)
+  )) +
+  geom_line() +
+
+  ## scale_x_log10() +
+  scale_y_log10(labels = scales::label_scientific()) +
+  scale_color_discrete(name = "State") +
+  theme_common()
+```
+
+### Timeline: Deaths
+
+```{r timeline-cases}
+df_states_historical %>%
+  mutate(date = ymd(date)) %>%
+  group_by(state) %>%
+  mutate(max_positive = max(positive)) %>%
+  ungroup() %>%
+  filter(
+    ## dense_rank(-max_positive) <= 10,
+    state %in% c("CA", "NY", "WA", "MA")
+  ) %>%
+
+  ggplot(aes(
+    x = date,
+    y = death,
+    color = fct_reorder2(state, date, death)
+  )) +
+  geom_line(size = 1) +
+
+  scale_y_log10() +
+  scale_color_discrete(name = "State") +
+  theme_common()
+```
+
+### New vs Total plots
 
 ```{r vis-cases}
 df_states_historical %>%
@@ -35,7 +152,8 @@ df_states_historical %>%
   ungroup() %>%
   filter(
     positiveIncrease > 0,
-    dense_rank(-max_positive) <= 10
+    ## dense_rank(-max_positive) <= 10
+    state %in% c("CA", "NY", "WA", "MA")
   ) %>%
 
   ggplot(aes(
@@ -44,15 +162,38 @@ df_states_historical %>%
     color = state
   )) +
   geom_smooth(se = FALSE, size = 2) +
-  geom_line() +
-  geom_point() +
+  ## geom_line() +
+  ## geom_point() +
 
   scale_x_log10() +
   scale_y_log10() +
   theme(legend.position = "bottom")
 ```
 
-### Tests
+```{r vis-deaths}
+df_states_historical %>%
+  group_by(state) %>%
+  mutate(max_positive = max(positive)) %>%
+  ungroup() %>%
+  filter(
+    positiveIncrease > 0,
+    ## dense_rank(-max_positive) <= 10
+    state %in% c("CA", "NY", "WA", "MA")
+  ) %>%
+
+  ggplot(aes(
+    death,
+    deathIncrease,
+    color = state
+  )) +
+  geom_smooth(se = FALSE, size = 2) +
+  ## geom_line() +
+  ## geom_point() +
+
+  scale_x_log10() +
+  scale_y_log10() +
+  theme(legend.position = "bottom")
+```
 
 ```{r vis-tests}
 df_states_historical %>%
@@ -61,7 +202,8 @@ df_states_historical %>%
   ungroup() %>%
   filter(
     totalTestResults > 0,
-    dense_rank(-max_test) <= 10
+    ## dense_rank(-max_test) <= 5
+    str_detect(state, "HI")
   ) %>%
 
   ggplot(aes(
@@ -75,6 +217,7 @@ df_states_historical %>%
 
   scale_x_log10() +
   scale_y_log10() +
+  theme_common()+
   theme(legend.position = "bottom")
 ```
 
@@ -86,7 +229,7 @@ df_states_historical %>%
   ungroup() %>%
   filter(
     positiveIncrease > 0,
-    dense_rank(-max_positive) <= 10
+    dense_rank(-max_positive) <= 8
   ) %>%
 
   ggplot(aes(

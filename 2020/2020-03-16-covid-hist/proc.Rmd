@@ -106,3 +106,42 @@ Observations:
 - I didn't think to collect the _time of day_ of each update, so some of the
   points may lie on top of each other.
 - Is the first entry on March 17th a data error?
+
+```{r vis-all}
+df_all %>%
+  pivot_longer(
+    names_to = "source",
+    values_to = "value",
+    Total_Confirmed_Cases:Deaths
+  ) %>%
+
+  ggplot(aes(updated, value)) +
+  geom_line(aes(color = source)) +
+  geom_point(
+    aes(color = source),
+    size = 3
+  ) +
+
+  scale_y_log10() +
+  scale_color_discrete(name = NULL) +
+  theme_common() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Documented County Update",
+    y = "Count"
+  )
+
+```
+
+[Bhatla and Reich-style plot](https://www.youtube.com/watch?v=54XLXg4fYsc):
+
+```{r }
+## df_all %>%
+##   mutate(Delta_Cases = lead(Total_Confirmed_Cases) - Total_Confirmed_Cases) %>%
+
+##   ggplot(aes(Total_Confirmed_Cases, Delta_Cases)) +
+##   geom_point() +
+##   geom_smooth()
+```
+
+- There's no coherent trend in these data yet
